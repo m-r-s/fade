@@ -1,0 +1,3 @@
+[submodule "scripts/run-matlab.d/amtoolbox"]
+	path = scripts/run-matlab.d/amtoolbox
+	url = git://amtoolbox.git.sourceforge.net/gitroot/amtoolbox/amtoolbox

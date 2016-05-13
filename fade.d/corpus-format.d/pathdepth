@@ -1,0 +1,7 @@
+#!/bin/bash
+if [ -z "$@" ]; then 
+  sed 's/[^/]//g' | awk '{print length}'
+else
+  echo "$@" | sed 's/[^/]//g' | awk '{print length}'
+fi
+

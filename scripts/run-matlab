@@ -1,0 +1,78 @@
+#!/bin/bash
+#
+# This script runs matlab scripts in a defined environment.
+# Arguments to this script can be directories.
+# Foldernames will frist be looked up in run-matlab.d.
+# The contents of these directories will be copied and added (addpath).
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+#
+
+# Prevent OpenMP from using more than 1 thread (e.g Octave)
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+ERROR=false
+
+# Search for octave-cli or matlab if undefined
+if [ -z "${MATLAB}" ]; then
+  if [ -x "$(which octave-cli 2> /dev/null)" ]; then
+    MATLAB="octave-cli -q"
+  elif  [ -x "$(which matlab 2> /dev/null)" ]; then
+    MATLAB="matlab -nodesktop -nosplash -singleCompThread"
+  fi
+fi
+
+MATLAB_SCRIPTS="${SSD}"
+args=("$@")
+# Add default matlab tool paths
+[ -n "${DEFAULTPATHS}" ] && args+=(${DEFAULTPATHS[@]})
+WORK_PATH=$(mktemp -d) || exit 1
+ADD_PATH=""
+COUNT=0
+for P in "${args[@]}"; do
+  #echo "try to make sense of '${P}'"
+  if [ -d "${MATLAB_SCRIPTS}/${P}" ]; then
+    #echo "copying '${MATLAB_SCRIPTS}/${P}'"
+    COUNT=$[${COUNT}+1]
+    mkdir -p "${WORK_PATH}/${COUNT}"
+    (cd "${MATLAB_SCRIPTS}/${P}/" && tar cf - * 2>/dev/null) | (cd "${WORK_PATH}/${COUNT}" && tar xf -) 2>/dev/null
+    ADD_PATH="${ADD_PATH} '${WORK_PATH}/${COUNT}'"
+  elif [ -d "$P" ]; then
+    #echo "copying '${P}'"
+    COUNT=$[${COUNT}+1]
+    mkdir -p "${WORK_PATH}/${COUNT}"
+    (cd "${P}" && tar cf - * 2>/dev/null) | (cd "${WORK_PATH}/${COUNT}" && tar xf -)
+    ADD_PATH="${ADD_PATH} '${WORK_PATH}/${COUNT}'"
+  fi
+done
+
+touch "${WORK_PATH}/prepare"
+[ -n "${ADD_PATH}" ] && (echo "addpath ${ADD_PATH};" > "${WORK_PATH}/prepare")
+#echo "matlab path: '${ADD_PATH}'"
+#echo "matlab binary: '${MATLAB}'"
+
+# Tell Octaves fftw to use only one thread
+if [[ "${MATLAB}" == *"octave"* ]]; then
+  echo "fftw('threads',1);" >> "${WORK_PATH}/prepare";
+fi
+
+cat "${WORK_PATH}/prepare" - | ${MATLAB} || ERROR=true
+rm -rf "$WORK_PATH"
+
+if $ERROR; then
+  echo "An error ocurred"
+  exit 1
+fi

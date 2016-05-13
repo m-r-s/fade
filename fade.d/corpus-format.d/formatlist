@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Split filelists according to a format
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+
+if [ $# -lt 3 ]; then
+  echo "usage: $0 source_path destination_path format"
+  exit 1
+fi
+
+SRC_PATH="$1"
+DST_PATH="$2"
+shift 2
+FORMAT=($@)
+
+if [ ! -d "$SRC_PATH" ]; then
+  echo "missing source_path '$SRC_PATH'"
+  exit 1
+fi
+if [ -z "$DST_PATH" ]; then
+  "no destination_path specified"
+  exit 1
+fi
+if [ -z "$FORMAT" ]; then
+  echo "no format string specified"
+  exit 1
+fi
+
+mkdir -p "$DST_PATH"
+echo "get initial filelist '${DST_PATH}/list'"
+(cd "${SRC_PATH}" && find -L ./ -type f | sed -e 's/^\.\///' -e 's/\.[^\.]*$//' ) > "${DST_PATH}/list"
+(cd "${DST_PATH}" && splitbysubdir ${FORMAT[@]})

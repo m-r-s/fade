@@ -1,0 +1,50 @@
+#!/bin/bash
+#USAGE      export FILE [KEEP] [LINK]
+#TASK       save a project to an archive
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+ARCHIVE_FILE="$1"
+[ -n "$2" ] && KEEP="$2"
+[ -n "$3" ] && LINK="$3"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Check if filename was specified
+if [ -z "${ARCHIVE_FILE}" ]; then
+  echo "no archive file specified"
+  exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+echo "exporting project to '${ARCHIVE_FILE}'"
+if [ "${LINK}" == "link" ] || [ "${LINK}" == "1" ]; then
+  echo "preserving links"
+  (cd "${UCD}" && (cd "${WKD}" && tar cf - .) | gzip --fast > "${ARCHIVE_FILE}") || exit 1
+else
+  echo "dereferencing links"
+  (cd "${UCD}" && (cd "${WKD}" && tar chf - .) | gzip --fast > "${ARCHIVE_FILE}") || exit 1
+fi
+
+if [ "${KEEP}" == "remove" ] || [ "${KEEP}" == "0" ]; then
+  echo "removing project on request"
+  rm -r "${WKD}"
+fi
+
+echo "${SCN} finished"

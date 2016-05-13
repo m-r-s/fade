@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# Create all the directories needed to create the files of a file list
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+#
+
+if [ -e "$1" ]; then
+  cat "$1" | awk 'BEGIN{FS=OFS="/"}{$NF=""; NF--; print}' | sort -u | xargs -n1 -I'X' mkdir -p "X"
+fi
+

@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+#
+
+if [ $# -lt 1 ]; then
+  FILELIST='-'
+else
+  FILELIST="$1"
+fi
+COUNT=0
+while read -r line; do
+  [ -e "${line}" ] || COUNT=$[$COUNT+1];
+done < <(cat "$FILELIST" | sed -e 's/^"//g' -e 's/"$//g')
+echo "${COUNT}"
+exit "${COUNT}"
+

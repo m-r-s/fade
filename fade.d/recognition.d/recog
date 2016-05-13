@@ -1,0 +1,207 @@
+#!/bin/bash
+#
+# Perform recognition
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+CONDITION="$1"
+
+# Work directory is current directory
+WKD="${PWD}"
+
+# Corpus environment directory
+CCD="${WKD}/config/corpus"
+
+# Recognition config directory
+RCD="${WKD}/config/recognition"
+
+# Test features directory
+FED="${WKD}/features"
+
+# Training directory
+TRD="${WKD}/training"
+
+# Recognition directory
+RED="${WKD}/recognition"
+
+# Checks for arguments, files, directories
+if [ -z "${CONDITION}" ]; then
+  echo "no condition specified"
+  exit 1
+elif [ ! -d "${RCD}" ]; then
+  echo "missing recognition config directory '${RCD}'"
+  exit 1
+elif [ ! -d "${RCD}/environment" ]; then
+  echo "missing recognition environment directory '${RCD}/environment'"
+  exit 1
+elif [ ! -f "${CCD}/conditions/${CONDITION}/test" ]; then
+  echo "missing testing list file '${CCD}/conditions/${CONDITION}/test'"
+  exit 1
+elif [ ! -d "${CCD}/format/test" ]; then
+  echo "missing testing list directory '${CCD}/format/test'"
+  exit 1
+elif [ ! -d "${FED}/test" ]; then
+  echo "missing testing features directory '${FED}/test'"
+  exit 1
+elif [ ! -d "${TRD}" ]; then
+  echo "missing training directory '${TRD}'"
+  exit 1
+fi
+
+# Check if parameter file exists
+if [ ! -f "${RCD}/parameters" ]; then
+  echo "missing training parameter file '${RCD}/parameters'"
+  exit 1
+fi
+
+# Load recognition parameters
+echo "load parameters '${RCD}/parameters'"
+source "${RCD}/parameters"
+
+# Check if all parameters are specified
+if [ -z "${PRUNING}" ]; then
+  echo "pruning parameter not set"
+  exit 1
+elif [ -z "${MAXACTIVE}" ]; then
+  echo "max active pruning parameter not set"
+  exit 1
+elif [ -z "${BINARY}" ]; then
+  echo "binary parameter not set"
+  exit 1
+fi
+
+# Derive model and result directories from condition
+TEST_CONDITION=$(echo "${CONDITION}" | tr "/" "_" | tr -d " ")
+echo "testing condition '${TEST_CONDITION}'"
+TRAIN_CONDITION="${TEST_CONDITION}"
+if ! [ -d "${TRD}/${TRAIN_CONDITION}" ]; then
+  echo "merge train condition"
+  TRAIN_CONDITION=$(echo "${TRAIN_CONDITION}" | sed 's/\^[^_]*//g')
+fi
+echo "training condition '${TRAIN_CONDITION}'"
+MODEL_DIR="${TRD}/${TRAIN_CONDITION}"
+RESULTS_DIR="${RED}/${TEST_CONDITION}"
+
+# Get access or exit gracefully
+# MUTEX
+mkdir -p "${RED}"
+if ! mkdir "${RESULTS_DIR}" &>/dev/null; then
+  echo "could not get lock"
+  exit 0
+fi
+
+# Temporal work directory
+TWD=$(mktemp -d)
+
+# Enter temporal directory
+if ! cd "${TWD}"; then
+  echo "could not enter temporal directory"
+  exit 1
+fi
+
+# Define a function to clean up before exit
+cexit() {
+  # Leave temporal environment and return to working directory
+  cd "${WKD}"
+  
+  # Clean up temporal environment
+  rm -r "${TWD}"
+  
+  # Give a reason
+  echo "$2"
+  
+  # Exit
+  exit $1
+}
+
+# Print parameter information
+echo "$PRUNING pruning"
+echo "$MAXACTIVE max active"
+
+# Copy recognition environment
+echo "Get recognition environment from '${RCD}/environment/'"
+if [ -e "${RCD}/environment/" ]; then
+  ls -1 "${RCD}/environment/" | while read line; do
+    echo "Copy '${line}'"
+    cp -L -r "${RCD}/environment/${line}" ./ || cexit 1 "could not copy '${RCD}/environment/${line}'"
+  done
+fi
+
+# Copy model environment
+echo "Get get model environment from '${MODEL_DIR}'"
+if [ -e "${MODEL_DIR}/" ]; then
+  ls -1 "${MODEL_DIR}/" | while read line; do
+    echo "Copy '${line}'"
+    cp -L -r "${MODEL_DIR}/${line}" ./ || cexit 1 "could not copy '{MODEL_DIR}/${line}'"
+  done
+fi
+
+# Gather feature file list with absolute paths
+# This is the list of files which will be recognized
+cat "${CCD}/conditions/${CONDITION}/test" | awk -v path="${CCD}/format/test/" '{print path $0}' | xargs -n1 -I'X' cat "X" | awk -v path="${FED}/test/" '{print "\"" path $0 ".htk\""}' > features ||  cexit 1 "failed to compile recognition file list"
+
+# Check if all features are in place
+NUM_FEATURES=$(cat features | wc -l)
+MISSING=$(checkfilelist features)
+[ $MISSING -gt 0 ] && cexit 1 "${MISSING} of ${NUM_FEATURES} feature files missing"
+echo "${NUM_FEATURES} feature files in place"
+
+# Guess grammar if none is provided
+if [ ! -e "grammar" ]; then
+  echo "guess grammar from filenames"
+  guess_grammar grammar features || cexit 1 "guessing grammar failed"
+fi
+
+# Generate network from grammar
+if [ ! -e "network" ]; then
+  echo "generate word network from grammar 'grammar->network'"
+  HParse -b "grammar" "network" || cexit 1 "grammar->network failed"
+fi
+
+# Set flags
+BINARY_FLAG=
+[ "${BINARY}" == "1" ] && BINARY_FLAG="-B"
+PRUNING_FLAG=
+[ -n "${PRUNING}" ] && [ ${PRUNING} -gt 0 ] && PRUNING_FLAG="-t ${PRUNING}"
+MAXACTIVE_FLAG=
+[ -n "${MAXACTIVE}" ] && [ ${MAXACTIVE} -gt 0 ] && MAXACTIVE_FLAG="-u ${MAXACTIVE}"
+# Recognize data
+HVite \
+  -C config \
+  -w network \
+  $PRUNING_FLAG \
+  $MAXACTIVE_FLAG \
+  -i results \
+  -H hmm/macros \
+  -H hmm/hmmdefs \
+  -S features \
+  dictionary \
+  models
+
+# Create an empty results file if none exists
+[ -e "results" ] || touch results
+  
+# Check if all files were transcribed
+NUM_TRANSCRIPTIONS=$(cat results | grep '^"' | wc -l)
+[ $NUM_TRANSCRIPTIONS -eq $NUM_FEATURES ] || echo "warning: only ${NUM_TRANSCRIPTIONS} of ${NUM_FEATURES} feature files were transcribed"
+
+# Copy result files
+cp -r "features" "${RESULTS_DIR}/features" || cexit 1 "could not copy features"
+cp -r "results" "${RESULTS_DIR}/results" || cexit 1 "could not copy results"
+cp -r "grammar" "${RESULTS_DIR}/grammar" || cexit 1 "could not copy grammar"
+
+# Exit 0
+cexit 0 "${SCN} finished"

@@ -1,0 +1,364 @@
+#!/bin/bash
+#
+# Perform training
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+CONDITION="$1"
+
+# Work directory is current directory
+WKD="${PWD}"
+
+# Corpus config directory
+CCD="${WKD}/config/corpus"
+
+# Training config directory
+TCD="${WKD}/config/training"
+
+# Features directory
+FED="${WKD}/features"
+
+# Training directory
+TRD="${WKD}/training"
+
+# Checks for arguments, files, directories
+if [ -z "${CONDITION}" ]; then
+  echo "no condition specified"
+  exit 1
+elif [ ! -f "${CCD}/conditions/${CONDITION}/train" ]; then
+  echo "missing training list file '${CCD}/conditions/${CONDITION}/train'"
+  exit 1
+elif [ ! -d "${CCD}/format/train" ]; then
+  echo "missing training list directory '${CCD}/format/train'"
+  exit 1
+elif [ ! -d "${TCD}" ]; then
+  echo "missing training config directory '${TCD}'"
+  exit 1
+elif [ ! -d "${FED}/train" ]; then
+  echo "missing training features directory '${FED}/train'"
+  exit 1
+fi
+
+# Check if parameter file exists
+if [ ! -f "${TCD}/parameters" ]; then
+  echo "missing training parameter file '${TCD}/parameters'"
+  exit 1
+fi
+
+# Load training parameters
+echo "load parameters '${TCD}/parameters'"
+source "${TCD}/parameters"
+
+# Check if all parameters are specified
+if [ -z "${MERGE}" ]; then
+  echo "merge parameter not set"
+  exit 1
+elif [ -z "${STATES}" ]; then
+  echo "states parameter not set"
+  exit 1
+elif [ -z "${SPECIAL_STATES}" ]; then
+  echo "special states parameter not set"
+  exit 1
+elif [ -z "${SILENCE_STATES}" ]; then
+  echo "silence states parameter not set"
+  exit 1
+elif [ -z "${MIXTURES}" ]; then
+  echo "mixtures parameter not set"
+  exit 1
+elif [ -z "${ITERATIONS}" ]; then
+  echo "iterations parameter not set"
+  exit 1
+elif [ -z "${UPDATES}" ]; then
+  echo "updates parameter not set"
+  exit 1
+elif [ -z "${PRUNINGS}" ]; then
+  echo "prunings parameter not set"
+  exit 1
+elif [ -z "${BINARY}" ]; then
+  echo "binary parameter not set"
+  exit 1
+fi
+
+# Derive (merged) training model directory
+TRAIN_CONDITION=$(echo "${CONDITION}" | tr "/" "_" | tr -d " ")
+echo -n "training condition '${TRAIN_CONDITION}'"
+if [ "${MERGE}" == 1 ]; then
+  TRAIN_CONDITION=$(echo "${TRAIN_CONDITION}" | sed 's/\^[^_]*//g')
+  echo " -> '${TRAIN_CONDITION}' (merged)"
+else
+  echo ""
+fi
+TRAIN_DIR="${TRD}/${TRAIN_CONDITION}"
+
+# Get access or exit gracefully
+# MUTEX
+mkdir -p "${TRD}"
+if ! mkdir "${TRAIN_DIR}" &>/dev/null; then
+  echo "could not get lock"
+  exit 0
+fi
+
+# Temporal work directory
+TWD=$(mktemp -d)
+
+# Enter temporal directory
+if ! cd "${TWD}"; then
+  echo "could not enter temporal directory"
+  exit 1
+fi
+
+# Define a function to clean up before exit
+cexit() {
+  # Leave temporal environment and return to working directory
+  cd "${WKD}"
+  
+  # Clean up temporal environment
+  rm -r "${TWD}"
+  
+  # Give a reason
+  echo "$2"
+  
+  # Exit
+  exit $1
+}
+
+# Print parameter information
+echo "${STATES} states"
+echo "${SPECIAL_STATES} special states"
+echo "${SILENCE_STATES} silence states"
+echo "${MIXTURES[@]} mixtures"
+echo "${ITERATIONS[@]} iterations"
+echo "${UPDATES[@]} update values"
+echo "${PRUNINGS[@]} pruning values"
+echo "${BINARY} binary"
+
+# Copy training environment
+echo "get training environment from '${TCD}/environment/'"
+if [ -e "${TCD}/environment/" ]; then
+  ls -1 "${TCD}/environment/" | while read line; do
+    echo "copy '${line}'"
+    cp -L -r "${TCD}/environment/${line}" ./ || cexit 1 "could not copy '${TCD}/environment/${line}'"
+  done
+fi
+
+# Gather feature file list with absolute paths
+# This is the list of files we will use to train the models
+echo "build feature file list"
+cat "${CCD}/conditions/${CONDITION}/train" | awk -v path="${CCD}/format/train/" '{print path $0}' | xargs -n1 -I'X' cat "X" | awk -v path="${FED}/train/" '{print "\"" path $0 ".htk\""}' > features
+
+# Check if all features are in place
+NUM_FEATURES=$(cat features | wc -l)
+MISSING=$(checkfilelist features)
+[ $MISSING -gt 0 ] && cexit 1 "${MISSING} of ${NUM_FEATURES} feature files missing"
+echo "${NUM_FEATURES} feature files in place"
+
+# Determine feature dimensionality
+# We call a Matlab function to do that and parse its output
+FEATURE_SAMPLE=$(head -n1 features | sed -e 's/^"//g' -e 's/"$//g')
+DIM=$(echo "features_dim('${FEATURE_SAMPLE}')" | run-matlab 'features' | awk -F: '$1 ~ /feature_dim/ {print $2}')
+[ $DIM -lt 1 ] && cexit 1 "could not determine feature dimension ('${DIM}')"
+echo "${DIM} dimensional features detected"
+
+# Check if multiple streams are defined and if, read the definition
+if [ -f "streams" ]; then
+  MULTI_STREAM=true
+  STREAMS=$(cat "streams" | tr -s ' ' | sed -e 's/^ //g' -e 's/ $//g' | \
+    cut -d' ' -f1 | tr '\n' ' ' | tr -s ' ')
+  WEIGHTS=$(cat "streams" | tr -s ' ' | sed -e 's/^ //g' -e 's/ $//g' | \
+    cut -d' ' -f2 | tr '\n' ' ' | tr -s ' ')
+  echo "multi-stream feature defintion with weights loaded from 'streams'"
+  echo "streams: ${STREAMS}"
+  echo "weights: ${WEIGHTS}"
+  STREAMS_ARRAY=($STREAMS)
+  NUM_STREAMS=${#STREAMS_ARRAY[@]}
+  WEIGHTS_ARRAY=($WEIGHTS)
+  NUM_WEIGHTS=${#WEIGHTS_ARRAY[@]}
+  [ ${NUM_STREAMS} -eq ${NUM_WEIGHTS} ] || cexit 1 "number of streams and weights do not match"
+# FIXME: Add dimensionality consistency checks
+else
+  MULTI_STREAM=false
+  STREAMS=$DIM
+  WEIGHTS=""
+fi
+
+# Generate config
+# A standard HTK config file
+if [ ! -e 'config' ]; then
+  echo "TARGETKIND = USER" > config
+  echo "RAWMITFORMAT = T" >> config
+  echo "STARTWORD = SENT-START" >> config
+  echo "ENDWORD = SENT-END" >> config
+  echo "config generated"
+fi
+
+# Generate labels
+# Use the label script to generate the labels in MLF format
+if [ ! -e 'labels' ]; then
+  label labels <(grep -o '[^/]*$' features | sort -u) || cexit 1 "labeling failed"
+  echo "labels generated"
+fi
+
+# Generate models list
+# Get all possible models from the training labels
+if [ ! -e 'models' ]; then
+  cat labels | grep -v -e '[."#]' | sort -u > models
+  echo "models list generated"
+fi
+
+# Generate states list
+# Here we use the same number of states for all modeles
+# But providing a 'models' and the corresponding 'states' file
+# in the corpus environment 'config/corpus/environment' allows
+# to use a different number of states
+if [ ! -e 'states' ]; then
+  for MODEL in $(cat 'models')
+  do
+    case "${MODEL: -3}" in
+    SIL)
+      echo "$[${SILENCE_STATES}+2]" >> states
+      ;;
+    SPE)
+      echo "$[${SPECIAL_STATES}+2]" >> states
+      ;;
+    *)
+      echo "$[$STATES+2]" >> states
+      ;;
+    esac
+  done
+  echo "states list generated"
+fi
+
+# Generate prototype
+echo "~o" > proto
+echo "<VECSIZE> ${DIM}<NULLD><USER><DIAGC>" >> proto || cexit 1 "generating 'proto' failed"
+if $MULTI_STREAM; then
+  echo "<STREAMINFO> ${NUM_STREAMS} ${STREAMS}" >> proto || cexit 1 "generating 'proto' failed"
+fi
+echo '~h "proto"' >> proto
+hmm_proto "$STREAMS" 3 0.5 "" "" "$WEIGHTS" >> proto || cexit 1 "generating 'proto' failed"
+
+# Get means and variances and a macro file
+# Will be saved in 'hmminit/'
+hmm_initialize || cexit 1 "initializing HMM 'hmminit' failed"
+echo "means    : "$(cat globalmean | tr " " "\n" | sed '/^$/d' | head -n 4 | tr "\n" " ")" ..."
+echo "variances: "$(cat globalvar | tr " " "\n" | sed '/^$/d' | head -n 4 | tr "\n" " ")" ..."
+
+# Check that information about models and states is consistent
+MODEL_LIST=($(cat models | tr '\r\n\t' '   '))
+STATE_LIST=($(cat states | tr '\r\n\t' '   '))
+if [ ! ${#MODEL_LIST[@]} -eq ${#STATE_LIST[@]} ]; then
+  cexit 1 "'states' and 'models' files must have the same number of entries"
+fi
+
+# Generate HMM definitions for all models
+# We consider the initial transition probability of the left-to-right models to be 0.5
+# Add the model name and paste the HMM body from the corresponding prototype
+TRANS_PROB=0.5
+echo "create hmm0"
+mkdir hmm0
+for ((I=0;$I<${#MODEL_LIST[@]};I++)); do
+  echo "model: '${MODEL_LIST[$I]}' with $[${STATE_LIST[$I]}-2] states"
+  echo "~h \"${MODEL_LIST[$I]}\"" >> hmm0/hmmdefs
+  hmm_proto "$STREAMS" "${STATE_LIST[$I]}" "$TRANS_PROB" globalmean globalvar "$WEIGHTS" >> hmm0/hmmdefs || cexit 1 "generating '${MODEL_LIST[$I]}' failed"
+done
+
+# Copy macros
+echo "copy macros"
+cp hmminit/macros hmm0/macros
+[ -f hmm0/hmmdefs ] || cexit 1 "'hmm0/hmmdefs' missing"
+[ -f hmm0/macros ] || cexit 1 "'hmm0/macros' missing"
+
+# Generate a simple dictionary
+echo "generate dictionary"
+cat models | tr -d "\r" | awk '{print $0 " " $0}' | sort -u > dictionary
+[ -f dictionary ] || cexit 1 "missing 'dictionary'"
+NUM_DICT_ENTRIES=$(cat dictionary | wc -l)
+echo "dictionary generated: ${NUM_DICT_ENTRIES} entries"
+
+# Train models
+BINARY_FLAG=
+[ "${BINARY}" == "1" ] && BINARY_FLAG="-B"
+
+# HMM count
+HCT=0
+for ((I=0;$I<${#MIXTURES[@]};I++)); do
+  # Get values
+  MIXTURE=${MIXTURES[$I]}
+  ITERATION=${ITERATIONS[$I]}
+  UPDATE=${UPDATES[$I]}
+  PRUNING=${PRUNINGS[$I]}
+
+  # Fall back to last element in array
+  [ -z "${ITERATION}" ] && ITERATION=${ITERATIONS[$[${#ITERATIONS[@]}-1]]}
+  [ -z "${UPDATE}" ] && UPDATE=${UPDATES[$[${#UPDATES[@]}-1]]}
+  [ -z "${PRUNING}" ] && PRUNING=${PRUNINGS[$[${#PRUNINGS[@]}-1]]}
+
+  # Perform mixup
+  if [ ${MIXTURE} -gt 1 ]; then
+    echo "add mixtures (up to ${MIXTURE} on all states)"
+    echo "MU ${MIXTURE} {*.state[1-100].mix}" > "mix_${MIXTURE}.hed"
+    mkdir "hmm$[${HCT}+1]"
+    HHEd \
+      ${BINARY_FLAG} \
+      -C config \
+      -H "hmm${HCT}/macros" \
+      -H "hmm${HCT}/hmmdefs" \
+      -M "hmm$[${HCT}+1]" \
+      "mix_${MIXTURE}.hed" \
+      models || cexit 1 "HHEd failed"
+    HCT=$[${HCT}+1]
+    echo "hmm${HCT} created"
+  fi
+
+  # Perform parameter reestimation
+  for ((J=0;$J<${ITERATION};J++)); do
+    PRUNING_FLAG=
+    [ -n "${PRUNING}" ] && [ ${PRUNING} -gt 0 ] && PRUNING_FLAG="-t ${PRUNING}"
+    UPDATE_FLAG="-u ${UPDATE}"
+    mkdir "hmm$[${HCT}+1]"
+    HERest \
+      ${PRUNING_FLAG} \
+      ${UPDATE_FLAG} \
+      ${BINARY_FLAG} \
+      -C config \
+      -S features \
+      -H "hmm${HCT}/macros" \
+      -H "hmm${HCT}/hmmdefs" \
+      -d "hmm${HCT}" \
+      -M "hmm$[${HCT}+1]" \
+      -s "hmm$[${HCT}+1]/stats" \
+      -I labels \
+      models || cexit 1 "HERest failed"
+    # Increment HMM counter
+    HCT=$[${HCT}+1]
+    echo "hmm${HCT} created"
+  done
+done
+
+# Copy model files
+echo "Save files to '${TRAIN_DIR}'"
+cp -r "hmm${HCT}" "${TRAIN_DIR}/hmm" || cexit 1 "could not copy hmm"
+cp -r "models" "${TRAIN_DIR}/models" || cexit 1 "could not copy models"
+cp -r "dictionary" "${TRAIN_DIR}/dictionary" || cexit 1 "could not copy dictionary"
+cp -r "config" "${TRAIN_DIR}/config" || cexit 1 "could not copy config"
+cp -r "states" "${TRAIN_DIR}/states" || cexit 1 "could not copy states"
+if mkdir "${TRAIN_DIR}/train/"; then
+  cp -r "features" "${TRAIN_DIR}/train/features" || cexit 1 "could not copy feature list"
+  cp -r "labels" "${TRAIN_DIR}/train/labels" || cexit 1 "could not copy labels"
+fi
+
+# Exit 0
+cexit 0 "${SCN} finished"

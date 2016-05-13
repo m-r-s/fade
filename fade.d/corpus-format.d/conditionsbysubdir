@@ -1,0 +1,55 @@
+#!/bin/bash
+# Copyright (C) 2014-2016 Marc René Schädler
+[ -n "$1" ] || exit 1
+[ -f 'train' ] || exit 1
+[ -f 'test' ] || exit 1
+MODES=$(echo "$1" | tr -d " ")
+POSITION=1
+[ -n "$2" ] && POSITION="$2"
+DEPTH=$[${#MODES}-$POSITION+2]
+TRAIN_OPTIONS=$(cat 'train' | rev | cut -d"/" -f "$DEPTH" | rev | sort -u)
+TEST_OPTIONS=$(cat 'test' | rev | cut -d"/" -f "$DEPTH" | rev | sort -u)
+echo -n "- position ${POSITION}: "
+case "${MODES:$[${POSITION}-1]:1}" in
+  a)
+  echo "all vs all"
+  for TRAIN_OPTION in ${TRAIN_OPTIONS[@]}; do
+    for TEST_OPTION in ${TEST_OPTIONS[@]}; do
+      echo "- condition '${TRAIN_OPTION}^${TEST_OPTION}'"
+      OPT_DIR="./${TRAIN_OPTION}^${TEST_OPTION}"
+      mkdir -p "$OPT_DIR"
+      cat 'train' | grep "\(^\|/\)${TRAIN_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" | sed -e 's/^\///' -e 's/\/$//' > "${OPT_DIR}/train"
+      cat 'test' | grep "\(^\|/\)${TEST_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" | sed -e 's/^\///' -e 's/\/$//' > "${OPT_DIR}/test"
+      [ -n "${MODES:${POSITION}}" ] && (cd "${OPT_DIR}" && "$0" "$MODES" "$[${POSITION}+1]")
+    done
+  done
+  ;;
+  o)
+  echo "one vs one"
+  for TRAIN_OPTION in ${TRAIN_OPTIONS[@]}; do
+    echo "- condition '${TRAIN_OPTION}'"
+    OPT_DIR="./${TRAIN_OPTION}^${TRAIN_OPTION}"
+    mkdir -p "$OPT_DIR"
+    cat 'train' | grep "\(^\|/\)${TRAIN_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" > "${OPT_DIR}/train"
+    cat 'test' | grep "\(^\|/\)${TRAIN_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" > "${OPT_DIR}/test"
+    [ -n "${MODES:${POSITION}}" ] && (cd "${OPT_DIR}" && "$0" "$MODES" "$[${POSITION}+1]")
+  done
+  ;;
+  c)
+  echo "cross validation"
+  for TRAIN_OPTION in ${TRAIN_OPTIONS[@]}; do
+    echo "- condition '${TRAIN_OPTION}'"
+    OPT_DIR="./~${TRAIN_OPTION}^${TRAIN_OPTION}"
+    mkdir -p "$OPT_DIR"
+    cat 'train' | grep -v "\(^\|/\)${TRAIN_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" > "${OPT_DIR}/train"
+    cat 'test' | grep "\(^\|/\)${TRAIN_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" > "${OPT_DIR}/test"
+    [ -n "${MODES:${POSITION}}" ] && (cd "${OPT_DIR}" && "$0" "$MODES" "$[${POSITION}+1]")
+  done
+  ;;
+  *)
+    echo "- unknown"
+    exit 1
+  ;;
+esac
+rm 'train' 'test'
+

@@ -1,0 +1,68 @@
+#!/bin/bash
+# Copyright (C) 2014-2016 Marc René Schädler
+
+if [ $# -lt 2 ];
+then
+  echo "usage: $0 MODE STATES FORWARD"
+  echo 'MODES: left-to-right, uniform'
+  echo 'FORWARD: transition proboability'
+  exit 1
+fi
+
+MODE="$1"
+STATES="$2"
+FORWARD="$3"
+
+[ -z "$FORWARD" ] && FORWARD=0.5
+STAY=$(echo "1-${FORWARD}" | bc)
+
+FORWARD=$(echo "scale=6;10*${FORWARD}" | bc)
+STAY=$(echo "scale=6;10*${STAY}" | bc)
+
+case $MODE in 
+uniform)
+  PROB=$(echo "scale=6;1/($[${STATES}-1])*10" | bc)"e-01"
+  for (( I=1; $I <= $STATES; I++ )); do
+    for (( J=1; $J <= $STATES; J++ )); do
+      if [ $I -eq $STATES ] && [ $J -eq $STATES ]; then
+        echo "0.000000e+00 "
+      elif [ $J -eq 1 ] || [ $I -eq $STATES ]; then
+        echo -n "0.000000e+00 "
+      elif [ $J -eq $STATES ]; then
+        echo "${PROB}"
+      else
+        echo -n "${PROB} "
+      fi
+    done
+  done
+;;
+left-to-right)
+  for (( I=1; $I <= $STATES; I++ )); do
+    for (( J=1; $J < $I; J++ )); do
+      echo -n "0.000000e+00 " 
+    done
+    case $I in
+    1 )
+      echo -n "0.000000e+00 1.000000e+00 " 
+    ;;
+    $[$STATES-1] )
+      echo -n "${STAY}e-01 ${FORWARD}e-01 "
+    ;;
+    $STATES ) 
+      echo -n "0.000000e+00" 
+    ;;
+    *   )
+      echo -n "${STAY}e-01 ${FORWARD}e-01 "
+    ;;
+    esac
+    for (( J=$[$I+2]; $J <= $STATES; J++ )); do
+      if [ $J -eq $STATES ]; then
+        echo -n "0.000000e+00" 
+      else
+        echo -n "0.000000e+00 " 
+      fi
+    done
+    echo "" 
+  done
+;;
+esac

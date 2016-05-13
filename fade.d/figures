@@ -1,0 +1,80 @@
+#!/bin/bash
+#USAGE      figures [FIGURES_ARGUMENT1] [FIGURES_ARGUMENT1]
+#TASK       generate figure and tables from the evaluated results
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+#  Get arguments
+if [ $# -gt 0 ]; then
+  echo "figure config will be overwritten"
+  OVERRIDE=true
+  # Prepare arguments for saving and passing them to the figure generation
+  ARGS=($@)
+  FIGARGS=
+  for ((I=0;$I<${#ARGS[@]};I++)); do
+    FIGARGS="${FIGARGS},'${ARGS[$I]}'"
+  done
+  shift
+else
+  OVERRIDE=false
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Matlab figure scripts directory
+FCD="${WKD}/config/figures"
+
+# Evaluation summary file
+EVD="${WKD}/evaluation"
+
+# Figures directory
+FID="${WKD}/figures"
+
+# Save/load the figure generation arguments
+if ${OVERRIDE}; then
+  echo "save figure generation arguments to file '${FCD}/arguments'"
+  echo "${FIGARGS}" > "${FCD}/arguments"
+elif [ -z "${FIGARGS}" ] && [ -f "${FCD}/arguments" ]; then
+  echo "load figure generation arguments from file '${FCD}/arguments'"
+  FIGARGS=$(cat "${FCD}/arguments")
+fi
+
+if [ ! -f "${EVD}/summary" ]; then
+  echo "missing evaluation summary '${EVD}/summary'"
+  exit 1
+elif [ ! -d "${FCD}/matlab" ]; then
+  echo "missing matlab figure scripts directory '${FCD}/matlab'"
+  exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Clear target
+[ -d "${FID}" ] && rm -r "${FID}"
+mkdir -p "${FID}" || exit 1
+
+# Evaluate all conditions
+echo "figures('${EVD}/summary','${FID}','${GITVERSION}' ${FIGARGS})" | run-matlab 'ascii-tools' "${FCD}/matlab"
+
+# Pretty print table if it exists
+if [ -f "${FID}/table.txt" ]; then
+  cat "${FID}/table.txt" | column -t > "${FID}/table.pretty"
+  mv "${FID}/table.pretty" "${FID}/table.txt"
+fi
+
+echo "${SCN} finished"
+

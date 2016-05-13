@@ -1,0 +1,59 @@
+#!/bin/bash
+#USAGE      evaluation
+#TASK       evaluate the recognition results
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Evaluation config directory
+ECD="${WKD}/config/evaluation"
+
+# Recognition directory
+RED="${WKD}/recognition"
+
+# Evaluation directory
+EVD="${WKD}/evaluation"
+
+CONDITIONS=($(cd "${RED}" && find . -mindepth 1 -maxdepth 1 -type d | sed -e 's/^\.\///g'))
+
+if [ -z "${CONDITIONS}" ]; then
+  echo "no conditions were found"
+  exit 1
+elif [ ! -e "${ECD}/evaluate" ]; then
+  echo "no evaluation script was found"
+  exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Clear target
+[ -d "${EVD}" ] && rm -r "${EVD}"
+mkdir -p "${EVD}"
+
+# Evaluate all conditions
+echo "write results to '${EVD}/'"
+for CONDITION in ${CONDITIONS[@]}; do
+  # Derive the training and the test condition from the condition string
+  TRAIN_CONDITION=$(echo "${CONDITION}" | sed 's/\^[^_]*//g')
+  TEST_CONDITION=$(echo "${CONDITION}" | sed 's/[^_]*\^//g')
+  mkdir -p "${EVD}/${CONDITION}"
+  # Run the evaluation script on the results
+  "${ECD}/evaluate" "${RED}/${CONDITION}/results" "${EVD}/${CONDITION}" | awk -v condition="${TRAIN_CONDITION} ${TEST_CONDITION}" '{print condition " " $0}' || exit 1
+done | sort > "${EVD}/summary"
+
+echo "${SCN} finished"

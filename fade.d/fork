@@ -1,0 +1,76 @@
+#!/bin/bash
+#USAGE      fork NEW_PROJECT [LINK]
+#TASK       create a new project by linking to or copying the current project
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+NEW_PROJECT="$1"
+[ -n "$2" ] && LINK="$2"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Check if new project name was specified
+if [ -z "${NEW_PROJECT}" ]; then
+  echo "no new project name specified"
+  exit 1
+fi
+
+if (cd "${UCD}" && [ -e "${NEW_PROJECT}" ]); then
+  TARGET_DIR=$(cd "${UCD}" && cd "${NEW_PROJECT}" && echo "${PWD}")
+  echo "'${TARGET_DIR}' already exists"
+  exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+echo "forking project to '${NEW_PROJECT}'"
+if ! (cd "${UCD}" && mkdir -p "${NEW_PROJECT}"); then
+  echo "could not create '${NEW_PROJECT}'"
+  exit 1
+fi
+
+# Get absolute target path
+TARGET_DIR=$(cd "${UCD}" && cd "${NEW_PROJECT}" && echo "${PWD}")
+
+# Check that the target dir exists
+if [ ! -d "${TARGET_DIR}" ];then
+  echo "'${TARGET_DIR}' is no directory"
+  exit 1
+fi
+
+# Get a filelist and copy or link files accordingly
+FILELIST=($(find "${PWD}" -mindepth 1 -maxdepth 1))
+for FULLFILENAME in ${FILELIST[@]}; do
+  FILENAME=$(basename "${FULLFILENAME}")
+  case "${FILENAME}" in
+    .*|log|config)
+      echo "copy '${FILENAME}'"
+      cp -L -r "${FULLFILENAME}" "${TARGET_DIR}/${FILENAME}"
+    ;;
+    *)
+    if [ "${LINK}" == "link" ] || [ "${LINK}" == "1" ]; then
+      echo "link '${FILENAME}'"
+      ln -s "${FULLFILENAME}" "${TARGET_DIR}/${FILENAME}"
+    else
+      echo "copy '${FILENAME}'"
+      cp -L -r "${FULLFILENAME}" "${TARGET_DIR}/${FILENAME}"
+    fi
+  esac
+done
+
+echo "${SCN} finished"

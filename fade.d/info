@@ -1,0 +1,29 @@
+#!/bin/bash
+#USAGE      info
+#TASK       print some information about a project
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+echo "location   '${WKD}'"
+echo "version    '${PROJECT_VERSION}'"
+CRT=$(cat "${WKD}/.${PROGRAM}-${PROJECT_VERSION}")
+echo "created    $CRT"
+PSZ=$(du -sh . | cut -f1)
+echo "size       ${PSZ} bytes"
+FLD=$(cd "${WKD}" && ls -1 | tr "\n" " ")
+echo "content    ${FLD}"
+echo "${SCN} finished"

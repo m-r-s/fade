@@ -1,0 +1,9 @@
+#!/bin/bash
+echo "TARGETKIND = USER"
+echo "RAWMITFORMAT = T"
+echo "STARTWORD = SENT-START"
+echo "ENDWORD = SENT-END"
+echo "FIXBADLATS = T"
+echo "HLVREC:FORCELATOUT = F"
+echo "HREC:FORCEOUT = F"
+

@@ -1,0 +1,81 @@
+#!/bin/bash
+# Copyright (C) 2014-2016 Marc René Schädler
+
+if [ $# -lt 2 ]
+then
+  echo "usage: $0 DIMENSIONS STATES [FORWARD] [MEAN] [VARIANCE] [WEIGHTS]"
+  exit 1
+fi
+
+DIMENSIONS=($1)
+STATES="$2"
+FORWARD="$3"
+MEAN="$4"
+VARIANCE="$5"
+WEIGHTS="$6"
+[ $STATES -ge 1 ] || exit 1
+
+if [ "$FORWARD" == "0" ]; then
+  MODE=uniform
+else
+  MODE=left-to-right
+fi
+
+function zero_mean {
+  local J
+  for (( J=1; $J <= $1; J++ )); do
+    echo -n '0.0 '
+  done
+  echo ''
+}
+
+function one_variance {
+  local J
+  for (( J=1; $J <= $1; J++ )); do
+    echo -n '1.0 '
+  done
+  echo ''
+}
+
+NUM_STREAMS=${#DIMENSIONS[@]}
+if [ "$NUM_STREAMS" -gt 1 ]; then
+  USE_STREAMS=true
+  WEIGHTS_ARRAY=($WEIGHTS)
+  NUM_WEIGHTS=${#WEIGHTS_ARRAY[@]}
+else
+  USE_STREAMS=false
+fi
+
+echo '<BEGINHMM>'
+echo '<NUMSTATES> '$STATES
+for (( I=2; $I <= $[$STATES-1]; I++ )); do
+  echo '<STATE> '$I
+  STREAM_POSITION=1
+  if $USE_STREAMS; then
+    echo '<SWEIGHTS> '"${NUM_WEIGHTS} ${WEIGHTS}"
+  fi
+  for (( J=1; $J <= $NUM_STREAMS; J++ )); do
+    STREAM_DIM=${DIMENSIONS[$[$J-1]]}
+    if $USE_STREAMS; then
+      echo '<STREAM> '$J
+    fi
+    echo '<MEAN> '$STREAM_DIM
+    if [ -e "$MEAN" ]; then
+      cat "$MEAN" | tr "\n" " " | tr -s " " | sed -e 's/^ //g' -e 's/ $//g' | \
+        cut -d' ' -f"$STREAM_POSITION"-"$[$STREAM_POSITION+$STREAM_DIM-1]"
+    else
+      zero_mean $STREAM_DIM
+    fi
+    echo '<VARIANCE> '$STREAM_DIM
+    if [ -e "$VARIANCE" ]; then
+      cat "$VARIANCE" | tr "\n" " " | tr -s " " | sed -e 's/^ //g' -e 's/ $//g' | \
+        cut -d' ' -f"$STREAM_POSITION"-"$[$STREAM_POSITION+$STREAM_DIM-1]"
+    else
+      one_variance $STREAM_DIM
+    fi
+    STREAM_POSITION=$[$STREAM_POSITION+$STREAM_DIM]
+  done
+done
+echo '<TRANSP>' $STATES
+hmm_transition $MODE $STATES $FORWARD
+echo '<ENDHMM>' 

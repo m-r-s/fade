@@ -1,0 +1,138 @@
+#!/bin/bash
+#USAGE      training [STATES] [SPECIAL_STATES] [MIXTURES] [ITERATIONS] [UPDATES] [PRUNINGS] [BINARY]
+#TASK       train the models
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+[ -n "$1" ] && STATES="$1"
+[ -n "$2" ] && SPECIAL_STATES="$2"
+[ -n "$3" ] && MIXTURES="$3"
+[ -n "$4" ] && ITERATIONS="$4"
+[ -n "$5" ] && UPDATES="$5"
+[ -n "$6" ] && PRUNINGS="$6"
+[ -n "$7" ] && BINARY="$7"
+if [ $# -gt 0 ]; then
+  echo "training parameters will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Corpus conditions directory
+CCD="${WKD}/config/corpus"
+
+# Training config directory
+TCD="${WKD}/config/training"
+
+# Feature directory
+FED="${WKD}/features"
+
+# Training directory
+TRD="${WKD}/training"
+
+# Check for various required directories
+if [ ! -d "${FED}" ]; then
+  echo "missing features directory '${FED}'"
+  exit 1
+elif [ ! -d "${CCD}/conditions" ]; then
+  echo "missing corpus conditions directory '${CCD}/conditions'"
+  exit 1
+elif [ ! -d "${CCD}/format" ]; then
+  echo "missing corpus format directory '${CFD}/format'"
+  exit 1
+fi
+
+# Check for train lists and data
+NUM_TRAIN_LISTS=$(find -L "${CCD}/conditions" -type f -iname 'train' | head -n1 | wc -l)
+NUM_TRAIN_FEATURES=$(find -L "${FED}/train" -type f -iname '*.htk' | head -n1 | wc -l)
+if [ ${NUM_TRAIN_FEATURES} -lt 1 ]; then
+  echo "no train feature files found in '${FED}/train'"
+  exit 1
+elif [ ${NUM_TRAIN_LISTS} -lt 1 ]; then
+  echo "no train lists found in '${CCD}/conditions/train'"
+  exit 1
+fi
+
+# Get a randomized list of all training conditions
+mkdir -p "${TCD}"
+echo "generate condition list '${TCD}/conditionlist'"
+(cd "${CCD}/conditions" && find -L . -type f -iname 'train') | sed -e 's/^\.\///g' -e 's/\/train$//g' | sort -R > "${TCD}/conditionlist"
+
+if grep '_' "${TCD}/conditionlist" &>/dev/null; then
+  echo "'_' is a reserved character and must not ocurr in training conditions '${TCD}/conditionlist'"
+  exit 1
+fi
+
+# Default to merging training conditions
+if [ -z "${MERGE}" ]; then
+  echo "merge training conditions"
+  MERGE=1
+fi
+
+# Default to one block
+[ -z "$PARALLEL" ] && PARALLEL=1
+
+# Generate parameters file
+# Providing training parameter as argumens will overwrite parameters
+if ${OVERRIDE} || [ ! -e "${TCD}/parameters" ]; then
+  echo "update training parameters '${TCD}/parameters'"
+  echo "STATES=${STATES}" > "${TCD}/parameters"
+  echo "SPECIAL_STATES=${SPECIAL_STATES}" >> "${TCD}/parameters"
+  echo "SILENCE_STATES=3" >> "${TCD}/parameters"
+  echo "MIXTURES=(${MIXTURES})" >> "${TCD}/parameters"
+  echo "ITERATIONS=(${ITERATIONS})" >> "${TCD}/parameters"
+  echo "UPDATES=(${UPDATES})" >> "${TCD}/parameters"
+  echo "PRUNINGS=(${PRUNINGS})" >> "${TCD}/parameters"
+  echo "BINARY=${BINARY}" >> "${TCD}/parameters"
+  echo "MERGE=${MERGE}" >> "${TCD}/parameters"
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Clear target
+[ -d "${TRD}" ] && rm -r "${TRD}"
+if ! mkdir -p "${TRD}"; then
+  echo "could not create training directory '${TRD}'"
+  exit 1
+fi
+
+# Perform training in $PARALLEL blocks
+echo "perform parallel training in $PARALLEL blocks"
+export PATH
+for ((I=0;$I<$[${PARALLEL}];I++)); do
+  batchtrain "${PARALLEL}" "${I}" &
+done
+
+# Wait for parallel threads to finish
+wait
+echo " finshed"
+
+# Check if all models exists
+NUM_MODELS=$(ls -1 "${TRD}" | wc -l)
+MISSING=$(ls -1 "${TRD}" | awk -v path="${TRD}" '{print path "/" $0 "/hmm/hmmdefs"}' | checkfilelist)
+if [ ${NUM_MODELS} -gt 0 ] && [ ${MISSING} -eq 0 ]; then
+  echo "${NUM_MODELS} models found"
+else
+  echo "${MISSING} of ${NUM_MODELS} models missing"
+  exit 1
+fi
+
+echo "${SCN} finished"
+

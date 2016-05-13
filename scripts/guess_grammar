@@ -1,0 +1,269 @@
+#!/bin/bash
+#
+# Universal grammar guess script for FADE
+#
+# Copyright (C) 2016 Marc René Schädler
+#
+
+if [ $# -lt 2 ];
+then
+  echo "usage: $0 GRAMMAR_FILE FILELIST [MODE]"
+  echo "MODE     matrix,word,sentence"
+  exit 1
+fi
+
+GRAMMAR_FILE="$1"
+FILELIST="$2"
+MODE="$3"
+
+if [ ! -e "$FILELIST" ]; then
+  echo "file does not exist '${FILELIST}'"
+  exit 1
+fi
+
+# Reduce to unique file names
+STRUCTURE=$(cat "$FILELIST" | grep -o '[^/]*$' | sed -E 's/\.[^\.]*//g' | sort -u)
+NUM_STRUCTURE=$(echo -e "$STRUCTURE" | wc -l)
+echo "$NUM_STRUCTURE unique filenames"
+
+# Check consistent use of ordered mode (#)
+NUM_ORDERSIGNS=($(echo -e "$STRUCTURE" | sed -e 's/[^#]//g' | awk '{print length($0)}' | sort -u -n))
+if [ ${#NUM_ORDERSIGNS[@]} -eq 1 ]; then
+  if [ ${NUM_ORDERSIGNS[0]} -eq 0 ]; then
+    ORDERED=true
+    echo "ordered mode"
+  else
+    ORDERED=false
+    echo "unordered mode"
+  fi
+else
+  echo "inconsistent use of unordered mode sign (#)"
+  exit 1
+fi
+
+# Check use of word/character mode (-)
+NUM_WORDSEP=($(echo -e "$STRUCTURE" | sed -e 's/[^-]//g' | awk '{print length($0)}' | sort -u -n -r))
+if [ ${NUM_WORDSEP[0]} -eq 0 ]; then
+  WORD=false
+  echo "char mode"
+else
+  WORD=true
+  echo "word mode"
+fi
+
+# Check use of repetition/reset and order signs (&)
+NUM_REPSIGNS=($(echo -e "$STRUCTURE" | sed -e 's/[^&]//g' | awk '{print length($0)}' | sort -u -n -r))
+if [ ${#NUM_REPSIGNS[@]} -eq 1 ]; then
+  UNIFORMREPETITIONS=true
+  NUM_REPETITIONS="${NUM_REPSIGNS[0]}"
+  echo "found uniform repetitions (${NUM_REPETITIONS}) "
+else
+  UNIFORMREPETITIONS=false
+  NUM_REPETITIONS="${NUM_REPSIGNS[0]}"
+  echo "found repetitions (${NUM_REPSIGNS[@]})"
+fi
+
+# Remove ordered signs (if any)
+STRUCTURE=$(echo -e "$STRUCTURE" | sed -E 's/#//g')
+
+# Convert to (more universal) word format
+if ! $WORD; then
+  STRUCTURE=$(echo -e "$STRUCTURE" | sed -E 's/(.)/\1-/g')
+fi
+
+# Align repetitions (if any)
+STRUCTURE=$(echo -e "$STRUCTURE" | tr '&' '\n')
+
+# Remove repeated separators,  start/end separators, parts after "_", empty lines
+STRUCTURE=$(echo -e "$STRUCTURE" | \
+  tr -s '-' | \
+  sed -E -e 's/_[^_]*$//g' -e 's/^-|-$//g'  | \
+  sed '/^[ ]*$/d' | \
+  sort -u)
+
+# Determine number of positions
+NUM_POSITIONS=($(echo -e "$STRUCTURE" | sed 's/[^-]//g' | awk '{print length($0)+1}' | sort -u -n -r))
+if [ ${#NUM_POSITIONS[@]} -eq 1 ]; then
+  UNIFORMPOSITIONS=true
+  NUM_POSITIONS="${NUM_POSITIONS[0]}"
+  echo "${NUM_POSITIONS} positions"
+else
+  UNIFORMPOSITIONS=false
+  echo "different number of positions (${NUM_POSITIONS[@]})"
+fi
+
+# Determine mode if not set
+if [ -z "$MODE" ]; then
+  echo "try to use matrix grammar mode"
+  if $ORDERED; then
+    if $UNIFORMPOSITIONS; then
+      MODE='matrix'
+      echo "matrix mode (ordered)"
+    else
+      echo "incompatible naming schemes: ordered mode and different number of positions!"
+      exit 1
+    fi
+  else
+    if $UNIFORMPOSITIONS; then
+      MODE='matrix'
+      echo "matrix mode (unordered)"
+    elif [ $NUM_REPETITIONS -gt 0 ]; then
+      MODE='sentence'
+      echo "fall back to sentence recognition mode"
+    else
+      MODE='word'
+      echo "fall back to word recognition mode"
+    fi
+  fi
+fi
+
+# Generate grammar
+case $MODE in
+  matrix)
+    echo "build matrix grammar"
+    if [ ! $UNIFORMPOSITIONS ]; then
+      echo "no uniform positions (${NUM_POSITIONS[@]})"
+      exit 1
+    fi
+    (
+      PREFIX=""
+      for ((I=1;$I<=$NUM_POSITIONS;I++)); do
+        POSPREFIX=$(printf "pos%02d" "$I")
+        echo -n "\$$POSPREFIX = "
+        if $ORDERED; then
+          PREFIX="${POSPREFIX}_";
+        else
+          PREFIX="mod_";
+        fi
+        echo -e "$STRUCTURE" | cut -d"-" -f"$I" | sort -u | \
+          awk -v prefix="$PREFIX" '{
+            switch ($0) {
+              case "?":
+                print "{SIL}";
+                break;
+              case "+":
+                print "{" prefix "SIL}";
+                break;
+              default:
+                print prefix $0;
+              }
+            }' | \
+          tr '\n' ' ' | \
+          sed -E -e 's/[ ]*$//g' -e 's/([^ ]*) /\1 | /g' -e 's/$/;/g'
+        echo ""
+        PREFIXES["$I"]="\$$POSPREFIX"
+      done
+      echo "\$positions = ( ${PREFIXES[@]} );"
+      if $UNIFORMREPETITIONS; then
+        POSITIONS="\$positions"
+        for ((I=1;$I<${NUM_REPETITIONS};I++)); do
+          POSITIONS="$POSITIONS \$positions"
+        done
+      else
+        POSITIONS="<\$positions>"
+      fi
+      echo "( START_SPE {PRE_SIL} ${POSITIONS} {POST_SIL} STOP_SPE )"
+    ) > "$GRAMMAR_FILE" || exit 1
+  ;;
+  sentence)
+    echo "build sentence grammar"
+    (
+      echo -e "$STRUCTURE" | sort -u | \
+        awk '
+          BEGIN {
+            sentences = 0;
+          }
+          {
+          printf("$sentence%04d = ( ",++sentences);
+          split($0, positions, "-");
+          position = 0;
+          for (ip in positions) {
+            if (ip > 1) {
+              printf(" ");
+            }
+            switch (positions[ip]) {
+              case "":
+                output = "";
+                break;
+              case "+":
+                printf("%s","{mod_SIL}");
+                position++;
+                break;
+              case "?":
+                printf("%s","{mod_SIL}");
+                position++;
+                break;
+              default:
+                printf("mod_%s",positions[ip]);
+                position++;
+             }
+           }
+         printf(" );\n");
+         }
+         END {
+           printf("$sentences = ( ");
+           for (is = 1; is <= sentences; is++) {
+             if (is > 1) {
+               printf(" | ");
+             }
+             printf("$sentence%04d",is);
+           }
+           printf(" );\n");
+         }'
+      PREFIXES["$I"]="\$$POSPREFIX"
+      if $UNIFORMREPETITIONS; then
+        SENTENCES="\$sentences"
+        for ((I=1;$I<${NUM_REPETITIONS};I++)); do
+          SENTENCES="$SENTENCES \$sentences"
+        done
+      else
+        SENTENCES="<\$sentences>"
+      fi
+      echo "( START_SPE {PRE_SIL} ${SENTENCES} {POST_SIL} STOP_SPE )"
+    ) > "$GRAMMAR_FILE" || exit 1
+  ;;
+  word)
+ echo "build word grammar"
+    (
+      echo -e "$STRUCTURE" | sort -u | \
+        awk '{
+          split($0, positions, "-");
+          position = 0;
+          for (ip in positions) {
+            switch (positions[ip]) {
+              case "":
+                output = "";
+                break;
+              case "+":
+                printf("%s\n","{mod_SIL}");
+                position++;
+                break;
+              case "?":
+                printf("%s\n","{mod_SIL}");
+                position++;
+                break;
+              default:
+                printf("mod_%s\n",positions[ip]);
+                position++;
+             }
+           }
+        }' | \
+        sort -u | \
+        awk '
+          BEGIN {
+            printf("$words = ( ");
+          }
+          {
+            if (NR > 1) {
+              printf(" | ");
+            }
+            printf($0);
+          }
+          END {
+            printf(" );\n");
+          }'
+      PREFIXES["$I"]="\$$POSPREFIX"
+      echo "( START_SPE {PRE_SIL} <\$words> {POST_SIL} STOP_SPE )"
+    ) > "$GRAMMAR_FILE" || exit 1
+esac
+

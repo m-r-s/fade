@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# This script generates a stimulus corpus
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Corpus generation scripts
+CGS="${WKD}/config/corpus/matlab"
+
+# Corpus directory
+COD="${WKD}/corpus"
+
+# Check if generation config file exists
+if [ -z "${TRAIN_SAMPELS}" ]; then
+  echo "train samples not defined"
+  exit 1
+elif [ -z "${TEST_SAMPELS}" ]; then
+  echo "test samples not defined"
+  exit 1
+elif [ -z "${TRAIN_SEED}" ]; then
+  echo "Train seed not defined"
+  exit 1
+elif [ -z "${TEST_SEED}" ]; then
+  echo "Test seed not defined"
+  exit 1
+fi
+
+# Check that matlab generation script exists
+if [ ! -f "${CGS}/generate.m" ]; then
+  echo "corpus generation matlab script '${CGS}/generate.m' missing"
+  exit 1
+fi
+
+# Clear target directory
+[ -d "${COD}" ] && rm -r "${COD}"
+mkdir -p "${COD}"
+
+# Generate training data
+mkdir -p "${COD}/train"
+echo "generate('${COD}/train', ${TRAIN_SAMPELS}, ${TRAIN_SEED});" | run-matlab "${CGS}" || exit 1
+
+# Generate test data
+mkdir -p "${COD}/test"
+echo "generate('${COD}/test', ${TEST_SAMPELS}, ${TEST_SEED});" | run-matlab "${CGS}" || exit 1
+

@@ -1,0 +1,50 @@
+#!/bin/bash
+#USAGE      corpus-generate
+#TASK       run the corpus generation script
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Corpus config directory
+CCD="${WKD}/config/corpus"
+
+# Corpus directory
+COD="${WKD}/corpus"
+
+# Check if generation script and config exists
+if [ ! -f "${CCD}/generate" ]; then
+  echo "corpus generation script '${CCD}/generate' missing"
+  exit 1
+elif [ ! -f "${CCD}/generate.cfg" ]; then
+  echo "corpus generation config '${CCD}/generate.cfg' missing"
+  exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Run corpus speech file generation script
+"${CCD}/generate" || exit 1
+
+# Check if files were generated
+NUM_FILES=$(find -L "${COD}" -type f -iname '*.wav' | wc -l)
+if [ ${NUM_FILES} -gt 1 ]; then
+  echo "${NUM_FILES} files found"
+else
+  echo "no files found"
+  exit 1
+fi

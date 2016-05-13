@@ -1,0 +1,144 @@
+#!/bin/bash
+#USAGE      features [FEATURES] [FEATURES_ARGUMENT1] [FEATURES_ARGUMENT2] ...
+#TASK       run the feature extraction
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+#  Get arguments
+if [ $# -gt 0 ]; then
+  echo "feature config will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+# Prepare additional arguments for passing them to the feature extraction
+[ -n "$1" ] && FEATURES="$1"
+if [ $# -gt 1 ]; then
+  shift
+  ARGS=($@)
+  FEXARGS=
+  for ((I=0;$I<${#ARGS[@]};I++)); do
+    FEXARGS="${FEXARGS},'${ARGS[$I]}'"
+  done
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Feature extraction config directory
+FCD="${WKD}/config/features"
+
+# Matlab feature extraction config directory
+MFD="${WKD}/config/features/matlab"
+
+# Matlab feature extraction script
+MFS="${WKD}/config/features/matlab/feature_extraction.m"
+
+# Set feature extraction source directory
+COD="${WKD}/corpus"
+
+# Feature target directory
+FTD="${WKD}/features"
+
+# Copy the requested feature extraction scripts
+if ${OVERRIDE} || [ ! -e "${MFD}" ]; then
+  echo "update feature extraction scripts '${MFD}'"
+  FEATURES_SOURCE=$(cd "${UCD}" && [ -d "${FEATURES}" ] && cd "${FEATURES}" && echo "${PWD}")
+  if [ ! -d "${FEATURES_SOURCE}" ]; then
+    FEATURES_SOURCE="${SSD}/${FEATURES}"
+  fi
+  if [ -d "${FEATURES_SOURCE}" ]; then
+    [ -d "${MFD}" ] && rm -r "${MFD}"
+    echo "copy '${FEATURES_SOURCE}' feature extraction scripts"
+    mkdir -p "${FCD}" || exit 1
+    cp -L -r "${FEATURES_SOURCE}" "${MFD}" || exit 1
+  fi
+fi
+
+# Save/load the feature extraction arguments if any
+if ${OVERRIDE}; then
+  echo "save feature extraction arguments to file '${FCD}/arguments'"
+  echo "${FEXARGS}" > "${FCD}/arguments"
+elif [ -z "${FEXARGS}" ] && [ -f "${FCD}/arguments" ]; then
+  echo "load feature extraction arguments from file '${FCD}/arguments'"
+  FEXARGS=$(cat "${FCD}/arguments")
+fi
+
+# Check that feature extraction script exists
+if [ ! -f "${MFS}" ]; then
+    echo "feature extracton script '${MFS}' missing"
+    exit 1
+fi
+
+# Prepare filelists if corpus directory exists
+if [ -e "${COD}" ]; then
+  # Check if the feature extraction script and source files exists
+  NUM_SOURCE_FILES=$(find -L "${COD}" -type f -iname '*.wav' | head -n1 | wc -l)
+  if [ "${NUM_SOURCE_FILES}" -lt 1 ]; then
+    echo "no '*.wav' files found in '${COD}'"
+    exit 1
+  fi
+
+  # Generate source and target lists and directories
+  mkdir -p "${FCD}" || exit 1
+  echo "generate source list '${FCD}/sourcelist'"
+  echo "generate target list '${FCD}/targetlist'"
+  treelists "${COD}" "${FCD}/sourcelist" "${FTD}" "${FCD}/targetlist.tmp" || exit 1
+  sed -e 's/\.wav$/.htk/g' "${FCD}/targetlist.tmp" > "${FCD}/targetlist"
+  rm "${FCD}/targetlist.tmp"
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Check that corpus directory exists
+if [ ! -d "${COD}" ]; then
+  echo "missing corpus directory '${COD}'"
+  exit 1
+fi
+
+# Clear target directory
+[ -d "${FTD}" ] && rm -r "${FTD}"
+mkdir -p "${FTD}" || exit 1
+
+# Create all neccessary target sub-directories
+echo "create target directories"
+mkdirlist "${FCD}/targetlist"
+
+# Default to one block
+[ -z "$PARALLEL" ] && PARALLEL=1
+
+# Perform feature extraction in $PARALLEL blocks
+echo "perform parallel feature extraction in $PARALLEL blocks"
+for ((I=1;$I<$[${PARALLEL}+1];I++)); do
+  echo "feature_batch_extract('${FCD}/sourcelist', '${FCD}/targetlist', ${PARALLEL}, ${I} ${FEXARGS})" | run-matlab 'ascii-tools' 'features' "${MFD}" &
+done
+
+# Wait for parallel threads to finish
+wait
+echo " finshed"
+
+# Check if all files were extracted
+NUM_FEATURE_FILES=$(cat "${FCD}/targetlist" | wc -l)
+MISSING=$(checkfilelist "${FCD}/targetlist")
+if [ "${MISSING}" -eq 0 ]; then
+  echo "${NUM_FEATURE_FILES} feature files found"
+else
+  echo "${MISSING} of ${NUM_FEATURE_FILES} feature files missing"
+  exit 1
+fi
+
+echo "${SCN} finished"
+

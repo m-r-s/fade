@@ -1,0 +1,104 @@
+#!/bin/bash
+#
+# Universal label generation script for FADE
+#
+# Copyright (C) 2016 Marc René Schädler
+#
+
+if [ $# -lt 2 ];
+then
+  echo "usage: $0 LABELS_FILE FILELIST"
+  exit 1
+fi
+
+LABELS_FILE="$1"
+FILELIST="$2"
+
+# Reduce to unique file names
+FILENAMES=$(cat "$FILELIST" | grep -o '[^/]*$' | sed 's/\.[^.]*$//g')
+
+NUM_FILENAMES=$(echo -e "$FILENAMES" | wc -l)
+echo "$NUM_FILENAMES unique filenames"
+
+# Check consistent use of ordered mode (#)
+NUM_ORDERSIGNS=($(echo -e "$FILENAMES" | sed -e 's/[^#]//g' | awk '{print length($0)}' | sort -u -n))
+if [ ${#NUM_ORDERSIGNS[@]} -eq 1 ]; then
+  if [ ${NUM_ORDERSIGNS[0]} -eq 0 ]; then
+    ORDERED=1
+    echo "ordered mode"
+  else
+    ORDERED=0
+    echo "unordered mode"
+  fi
+else
+  echo "inconsistent use of unordered mode sign (#)"
+  exit 1
+fi
+
+# Check use of word/character mode (-)
+NUM_WORDSEP=($(echo -e "$FILENAMES" | sed -e 's/[^-]//g' | awk '{print length($0)}' | sort -u -n -r))
+if [ ${NUM_WORDSEP[0]} -eq 0 ]; then
+  WORD=0
+  echo "char mode"
+else
+  WORD=1
+  echo "word mode"
+fi
+
+echo -e "$FILENAMES" | awk -v word="$WORD" -v ordered="$ORDERED" '
+  BEGIN {
+    print "#!MLF!#";
+  }
+  {
+    print "\"*/"$0".lab\"";
+    gsub(/#/,"");
+    sub(/_[^_]*$/,"");
+    if (word == "1") {
+      split($0, positions, "-");
+    } else {
+      split($0, positions, "");
+    }
+    print "START_SPE";
+    print "PRE_SIL";
+    position = 0;
+    for (ip in positions) {
+      if (ordered == "1") {
+        prefix = 1;
+      } else {
+        prefix = 0;
+      }
+      switch (positions[ip]) {
+        case "":
+          output = "";
+          break;
+        case "&":
+          output = "";
+          position = 0;
+          break;
+        case "+":
+          output = "SIL";
+          position++;
+          break;
+        case "?":
+          prefix = 0;
+          output = "SIL";
+          position++;
+          break;
+        default:
+          output = positions[ip];
+          position++;
+      }
+      if ( output != "") {
+        if (prefix == 1) {
+          print sprintf("pos%02d_",position) output;
+        } else {
+          print "mod_" output;
+        }
+      }
+    }
+    print "POST_SIL";
+    print "STOP_SPE";
+    print ".";
+  }' > "$LABELS_FILE" || exit 1
+
+

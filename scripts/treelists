@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+#
+
+
+if [ -e "$3" ]; then
+  TARGET_EXISTS=true
+else
+  TARGET_EXISTS=false
+  mkdir -p "$3" || exit 1
+fi
+
+SRC_DIR=$(cd "$1" && pwd)
+SRC_OUT=$(cd "$( dirname "$2" )" && pwd)/"$(basename "$2")"
+DST_DIR=$(cd "$3" && pwd)
+DST_OUT=$(cd "$( dirname "$4" )" && pwd)/"$(basename "$4")"
+
+cd "${SRC_DIR}" || exit 1
+FILELIST=$(find -L * -type f | sort -n)
+echo "${FILELIST}" | awk -v path="${SRC_DIR}/" '{print path $1}' > "${SRC_OUT}" || exit 1
+echo "${FILELIST}" | awk -v path="${DST_DIR}/" '{print path $1}' > "${DST_OUT}" || exit 1
+
+if ! $TARGET_EXISTS; then
+  rm -r "$3"
+fi

@@ -1,0 +1,122 @@
+#!/bin/bash
+#USAGE      recognition [PRUNING] [MAXACTIVE] [BINARY]
+#TASK       run the recognition
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+[ -n "$1" ] && PRUNING="$1"
+[ -n "$2" ] && MAXACTIVE="$2"
+[ -n "$3" ] && BINARY="$3"
+if [ $# -gt 0 ]; then
+  echo "recognition parameters will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Corpus conditions directory
+CCD="${WKD}/config/corpus"
+
+# Recognition config directory
+RCD="${WKD}/config/recognition"
+
+# Feature directory
+FED="${WKD}/features"
+
+# Training directory
+TRD="${WKD}/training"
+
+# Recognition directory
+RED="${WKD}/recognition"
+
+# Check for various required directories
+if [ ! -d "${FED}" ]; then
+  echo "missing features directory '${FED}'"
+  exit 1
+elif [ ! -d "${TRD}" ]; then
+  echo "missing training directory '${TRD}'"
+  exit 1
+elif [ ! -d "${CCD}/conditions" ]; then
+  echo "missing corpus conditions directory '${CCD}/conditions'"
+  exit 1
+elif [ ! -d "${CCD}/format" ]; then
+  echo "missing corpus format directory '${CCD}/format'"
+  exit 1
+fi
+
+# Default to one block
+[ -z "$PARALLEL" ] && PARALLEL=1
+
+# Check for test lists and data
+NUM_TEST_LISTS=$(find -L "${CCD}/conditions" -type f -iname 'test' | head -n1 | wc -l)
+NUM_TEST_FEATURES=$(find -L "${FED}/test" -type f -iname '*.htk' | head -n1 | wc -l)
+if [ ${NUM_TEST_FEATURES} -lt 1 ]; then
+  echo "no test feature files found in '${FED}/test'"
+  exit 1
+elif [ ${NUM_TEST_LISTS} -lt 1 ]; then
+  echo "no test lists found in '${CCD}/conditions'"
+  exit 1
+fi
+
+# Get a randomized list of all testing conditions
+mkdir -p "${RCD}"
+echo "generate condition list '${RCD}/conditionlist'"
+(cd "${CCD}/conditions" && find -L . -type f -iname 'test') | sed -e 's/^\.\///g' -e 's/\/test$//g' | sort -R > "${RCD}/conditionlist"
+
+# Generate parameters file
+if ${OVERRIDE} || [ ! -e "${RCD}/parameters" ]; then
+  echo "update recognition parameters '${RCD}/parameters'"
+  echo "PRUNING=${PRUNING}" > "${RCD}/parameters"
+  echo "MAXACTIVE=${MAXACTIVE}" >> "${RCD}/parameters"
+  echo "BINARY=${BINARY}" >> "${RCD}/parameters"
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Clear target
+[ -d "${RED}" ] && rm -r "${RED}"
+if ! mkdir -p "${RED}"; then
+  echo "could not create recognition directory '${RED}'"
+  exit 1
+fi
+
+# Perform recognition in $PARALLEL blocks
+echo "perform parallel recognition in $PARALLEL blocks"
+export PATH
+for ((I=0;$I<$[${PARALLEL}];I++)); do
+  batchrecog "${PARALLEL}" "${I}" &
+done
+
+# Wait for parallel threads to finish
+wait
+echo " finshed"
+
+# Check if all results exists
+NUM_RESULTS=$(ls -1 "${RED}" | wc -l)
+MISSING=$(ls -1 "${RED}" | awk -v path="${RED}" '{print path "/" $0 "/results"}' | checkfilelist)
+if [ ${NUM_RESULTS} -gt 0 ] && [ ${MISSING} -eq 0 ]; then
+  echo "${NUM_RESULTS} transcriptions found"
+else
+  echo "${MISSING} of ${NUM_RESULTS} transcriptions missing"
+  exit 1
+fi
+
+echo "${SCN} finished"
+

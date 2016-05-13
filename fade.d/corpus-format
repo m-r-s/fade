@@ -1,0 +1,113 @@
+#!/bin/bash
+#USAGE      corpus-format [TRAIN_FORMAT] [TEST_FORMAT] [CONDITION_CODE]
+#TASK       generate training and test conditions based on files in corpus
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+[ -n "$1" ] && TRAIN_FORMAT="$1"
+[ -n "$2" ] && TEST_FORMAT="$2"
+[ -n "$3" ] && CONDITION_CODE="$3"
+if [ $# -gt 0 ]; then
+  echo "corpus format file will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Corpus format file
+CFF="${WKD}/config/corpus/format.cfg"
+
+# Corpus format directory
+CFD="${WKD}/config/corpus/format"
+
+# Corpus conditions directory
+CCD="${WKD}/config/corpus/conditions"
+
+# Corpus directory
+COD="${WKD}/corpus"
+
+# Check if corpus directory exists
+if [ ! -d "${COD}" ]; then
+  echo "missing corpus directory '${COD}'"
+  exit 1
+fi
+
+# Save the requested format
+if ${OVERRIDE} || [ ! -e  "${CFF}" ]; then
+  echo "update corpus format file '${CFF}'"
+  mkdir -p $(dirname "${CFF}") || exit 1
+  echo "TRAIN_FORMAT='${TRAIN_FORMAT}'" > ${CFF}
+  echo "TEST_FORMAT='${TEST_FORMAT}'" >> ${CFF}
+  echo "CONDITION_CODE='${CONDITION_CODE}'" >> ${CFF}
+fi
+
+# Check if configuration, training and test files exists
+NUM_TRAIN_FILES=$(find -L "${COD}/train" -type f -iname '*.wav' | head -n1 | wc -l)
+NUM_TEST_FILES=$(find -L "${COD}/test" -type f -iname '*.wav' | head -n1 | wc -l)
+if [ "${NUM_TRAIN_FILES}" -lt 1 ]; then
+  echo "no training files found in '${COD}/train'"
+  exit 1
+elif [ "${NUM_TEST_FILES}" -lt 1 ]; then
+  echo "no testing files found in '${COD}/test'"
+  exit 1
+fi
+
+# Check that config file exists and load it
+if [ ! -e "${CFF}" ]; then
+  echo "missing corpus format file '${CFF}'"
+  exit 1
+elif ! source "${CFF}"; then
+  echo "error loading corpus format file '${CFF}'"
+  exit 1
+fi
+
+# Check that parameters are specified
+if [ -z "${TRAIN_FORMAT}" ]; then
+  echo "no training format was specified"
+  exit 1
+elif [ -z "${TEST_FORMAT}" ]; then
+  echo "no testing format was specified"
+  exit 1
+elif [ -z "${CONDITION_CODE}" ]; then
+  echo "no condition code was specified"
+  exit 1
+fi
+
+# Print parameters
+echo "training data format  '${TRAIN_FORMAT}'"
+echo "testing data format   '${TEST_FORMAT}'"
+echo "condition code        '${CONDITION_CODE}'"
+
+# Clear targets
+[ -d "${CFD}" ] && rm -r "${CFD}"
+mkdir -p "${CFD}"
+[ -d "${CCD}" ] && rm -r "${CCD}"
+mkdir -p "${CCD}"
+
+# Format the corpus
+mkdir -p "${CFD}"
+formatlist "${COD}/train" "${CFD}/train" "$TRAIN_FORMAT"
+formatlist "${COD}/test" "${CFD}/test" "$TEST_FORMAT"
+mkdir -p "${CCD}"
+buildconditions "${CFD}/train" "${CFD}/test" "${CCD}" "$CONDITION_CODE"
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+echo "${SCN} finished"

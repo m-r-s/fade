@@ -1,0 +1,32 @@
+#!/bin/bash
+# Copyright (C) 2014-2016 Marc René Schädler
+if [ -z "$1" ]; then
+  echo "no format specified"
+  exit 1
+fi
+if [ ! -f 'list' ]; then
+  echo "missing 'list' file"
+  exit 1
+fi
+PATHDEPTHS=$(pathdepth 'list' | sort -u | wc -l)
+if [ "${PATHDEPTHS}" -gt 1 ]; then
+  echo "pathdepth must be unique"
+  exit 1
+fi
+DEPTH="$[${1}+1]"
+shift
+if [ ${DEPTH} -eq 1 ]; then
+  echo "- depth $[${DEPTH}-1] > nul"
+  mkdir 'nul'
+  cp 'list' 'nul/list'
+  [ -n "$1" ] && (cd "nul" && "$0" $@)
+else
+  OPTIONS=$(cat 'list' | rev | cut -d"/" -f "$DEPTH" | rev | sort -u)
+  echo "- depth $[${DEPTH}-1] > $(echo ${OPTIONS[@]} | tr -d "\n")"
+  for OPTION in ${OPTIONS[@]}; do
+    mkdir -p "./${OPTION}"
+    cat 'list' | grep -e "\(^\|/\)${OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" | sed -e 's/^\///' -e 's/\/$//' > "./${OPTION}/list"
+    [ -n "$1" ] && (cd "./${OPTION}" && "$0" $@)
+  done
+fi
+rm 'list'

@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# A function that starts a block of recognition scripts
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+[ -n "$1" ] && BLOCKS="$1"
+[ -n "$2" ] && BLOCK="$2"
+
+# Work directory is current directory
+WKD="${PWD}"
+
+# Recognition config directory
+RCD="${WKD}/config/recognition"
+
+# Log directory
+LGD="${WKD}/log"
+
+# Check if blocks are specified and condition list exists
+if [ ! -f "${RCD}/conditionlist" ]; then
+  echo "missing condition list '${RCD}/conditionlist'"
+  exit 1
+elif [ -z "${BLOCKS}" ]; then
+  echo "number of blocks not specified"
+  exit 1
+elif [ -z "${BLOCK}" ]; then
+  echo "block not specified"
+  exit 1
+fi
+
+# Check if there are any conditions
+TEST_CONDITIONS=($(cat "${RCD}/conditionlist"))
+if [ -z "${TEST_CONDITIONS}" ]; then
+  echo "no testing conditions found"
+  exit 1
+fi
+
+# Ascii progress indicator
+ASCII_PROGRESS=(0 1 2 3 4 5 6 7 8 9 9)
+
+mkdir -p "${LGD}"
+LOGFILE="${LGD}/batchrecog-${BLOCK}.log"
+[ -e "${LOGFILE}" ] && rm "${LOGFILE}"
+
+for ((I=${BLOCK};$I<${#TEST_CONDITIONS[@]};I=I+${BLOCKS})); do
+  CONDITION="${TEST_CONDITIONS[$I]}"
+  if [ -n "$CONDITION" ]; then
+    # Start recognition
+    recog "${CONDITION}" &>> "${LOGFILE}" || exit 1
+    # Indicate progress
+    echo -n "${ASCII_PROGRESS[$[${I}*${#ASCII_PROGRESS[@]}/${#TEST_CONDITIONS[@]}]]}"
+  fi
+done
+
+echo -n "#"

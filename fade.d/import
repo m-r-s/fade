@@ -1,0 +1,49 @@
+#!/bin/bash
+#USAGE      import FILE [OVERWRITE]
+#TASK       load a project from an archive
+#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+ARCHIVE_FILE="$1"
+[ -n "$2" ] && OVERWRITE="$2"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Check if filename was specified
+if [ -z "${ARCHIVE_FILE}" ]; then
+  echo "no archive file specified"
+  exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+if [ $(ls -1 | grep -v -i '^log$' | wc -l) -gt 0 ]; then
+  if [ "${OVERWRITE}" == "overwrite" ] || [ "${OVERWRITE}" == "1" ]; then
+    echo "removing old project on request"
+    cd "${UCD}" && rm -r "${WKD}" || exit 1
+    mkdir -p "${WKD}" && cd "${WKD}" || exit 1
+  else
+    echo "this project is not empty"
+    exit 1
+  fi
+fi
+
+echo "importing project from '${ARCHIVE_FILE}'"
+(cd "${UCD}" && gunzip -c "${ARCHIVE_FILE}" | (cd "${WKD}" && tar xf -)) || exit 1
+
+echo "${SCN} finished"

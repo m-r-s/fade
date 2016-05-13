@@ -1,0 +1,155 @@
+#!/bin/bash
+#
+# Universal evaluation script for FADE
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+#
+
+RESULTS="$1"
+OUTDIR="$2"
+
+[ -e "${RESULTS}" ] || exit 1
+
+# Filter out irrelevant words
+function relevant_words_by_line() {
+  grep -v '#\|"' | \
+  cut -d" " -f3 | \
+  grep -v -E "[[:upper:]]" | \
+  tr '\n' ' ' | \
+  sed -e 's/[ ]*\.[ ]*/\n/g' -e 's/^[ ]+//g' -e 's/[ ]+$//g'
+}
+
+# Get filenames
+FILENAMES=$(cat "$RESULTS" | grep '^"' | tr -d '"' | grep -o '[^/]*$') || exit 1
+
+# Get labels
+label "${OUTDIR}/labels" <(echo -e "$FILENAMES") &>/dev/null || exit 1
+
+# Evaluate average likelihood
+cat "${RESULTS}" | \
+  grep -v '#\|"' | \
+  awk '
+    {
+      if (length($3) > 0) {
+        likelihood[$3] += $4;
+        time[$3] += $2 - $1;
+      }
+    }
+    END {
+      for (item in likelihood) {
+        printf("%s %.0f %f %f\n",item,time[item],likelihood[item],likelihood[item]/time[item]*1E7);
+      }
+    }
+    ' | sort > "${OUTDIR}/likelihoods"
+
+# Get weights (if any)
+echo -e "$FILENAMES" | \
+  sed -E -e 's/^[^_]+_?//g' -e 's/.[^.]*$//g' | \
+  awk '
+    {
+      if (match($0,"^w")) {
+        sub("^w","");
+        split($0,weights,",");
+        for (iw in weights) {
+          if (iw > 1) {
+            printf(" ");
+          }
+          printf("%f",weights[iw]);
+        }
+        printf("\n");
+      } else {
+      print "";
+      }
+    }' > "${OUTDIR}/weights" || exit 1
+
+# Find words matching the labels
+paste -d':' \
+  <(cat "${OUTDIR}/labels" | relevant_words_by_line) \
+  <(cat "$RESULTS" | relevant_words_by_line) | \
+  awk '
+    {
+      split($1,labels," ");
+      split($2,trans," ");
+      for (il in labels) {
+        if (il > 1) {
+          printf " ";
+        }
+        present = 0;
+        for (it in trans) {
+          if (trans[it] == labels[il]) {
+            present = 1;
+            delete trans[it];
+            break;
+          }
+        }
+        printf present;
+      }
+      printf "\n";
+    }' FS=: > "${OUTDIR}/matches" || exit 1
+
+# Calculate average likelihood per second for relevant items
+AVERAGE_LIKELIHOOD=$(cat "${OUTDIR}/likelihoods" | \
+  grep -v -E "[[:upper:]]" | \
+  awk '
+    {
+      if (length($2) > 0 && length($3) > 0) {
+        likelihood += $3;
+        time += $2;
+      }
+    }
+    END {
+      printf("%.0f",likelihood/time*1E7);
+    }
+    ')
+
+# Evaluate the results
+paste -d':' "${OUTDIR}/matches" "${OUTDIR}/weights" | \
+  awk -v averagelikelihood="${AVERAGE_LIKELIHOOD}" '
+    {
+    split($1,matches," ");
+    split($2,weights," ");
+    num_items = length(matches);
+    num_found = 0;
+    score = 0.0;
+    if (length(weights) == num_items) {
+      useweights = 1;
+    } else {
+      useweights = 0;
+    }
+    for (i in matches) {
+      num_items_sum[i]++;
+      if (matches[i] == 1) {
+        num_found++;
+        num_found_sum[i]++;
+        if (useweights == 1) {
+          score += weights[i];
+        } else {
+          score += 1/num_items;
+        }
+      }
+    }
+    if (num_items > 0) {
+      num_files++;
+      if (num_found == num_items) {
+        correct_files++;
+      }
+    }
+    score_sum += score;
+    }
+    END {
+      num_items_sum_sum = 0;
+      num_found_sum_sum = 0;
+      for (i in num_found_sum) {
+        num_found_sum_sum += num_found_sum[i];
+      }
+      for (i in num_items_sum) {
+        num_items_sum_sum += num_items_sum[i];
+      }
+      if (num_files > 0 && num_items_sum_sum > 0) {
+        printf("%i %i %i %i %f %.0f",num_items_sum_sum,num_found_sum_sum,num_files,correct_files,score_sum,averagelikelihood);
+        for (i in num_items_sum) {
+          printf(" %i %i",num_items_sum[i],num_found_sum[i]);
+        }
+      }
+    }' FS=: || exit 1
+

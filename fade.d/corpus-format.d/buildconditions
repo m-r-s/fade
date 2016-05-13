@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# Match filelists and generate conditions according to a code
+#
+# Copyright (C) 2014-2016 Marc René Schädler
+
+if [ $# -lt 4 ];
+then
+  echo "usage: $0 train_list_dir test_list_dir condition_list_dir code"
+  exit 1
+fi
+
+TRAIN_LIST_DIR="$1"
+TEST_LIST_DIR="$2"
+CONDITION_LIST_DIR="$3"
+shift 3
+CODE="$@"
+
+if [ -z "${CODE}" ]; then
+  echo "no code specified"
+  exit 1
+elif [ -z "${CONDITION_LIST_DIR}" ]; then
+  echo "no condition list directory specified"
+  exit 1
+elif [ ! -d "$TRAIN_LIST_DIR" ]; then
+  echo "missing train list directory '${TRAIN_LIST_DIR}'"
+  exit 1
+elif [ ! -d "$TEST_LIST_DIR" ]; then
+  echo "missing test list directory '${TEST_LIST_DIR}'"
+  exit 1
+fi
+
+mkdir -p "${CONDITION_LIST_DIR}"
+
+# Get lists
+(cd "${TRAIN_LIST_DIR}" && find -L ./ -type f -iname 'list') | sed -e 's/^\.\///' > "${CONDITION_LIST_DIR}/train"
+(cd "${TEST_LIST_DIR}" && find -L ./ -type f -iname 'list') | sed -e 's/^\.\///' > "${CONDITION_LIST_DIR}/test"
+cd "${CONDITION_LIST_DIR}"
+
+# Check compatibility
+TRAIN_DEPTH=($(cat 'train' | pathdepth | sort -u))
+TEST_DEPTH=($(cat 'test' | pathdepth | sort -u))
+if [ ${#TRAIN_DEPTH[@]} -ne 1 ]; then
+  echo "multiple train depths"
+  exit 1
+elif [ ${#TEST_DEPTH[@]} -ne 1 ]; then
+  echo "multiple test depths"
+  exit 1
+elif [ "${TRAIN_DEPTH}" -ne  "${TEST_DEPTH}" ]; then
+  echo "train (${TRAIN_DEPTH}) and test (${TEST_DEPTH}) depth do not match"
+  exit 1
+fi
+
+# Build conditions
+conditionsbysubdir "${CODE}"
+

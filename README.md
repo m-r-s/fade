@@ -27,7 +27,7 @@ FADE was developed and tested in an Ubuntu Linux environment.
 Install Ubuntu Linux on the machine that you want to run FADE.
 Some additional packages are required which can be installed using the following command in a terminal:
 
-`sudo apt-get install git build-essential octave liboctave-dev`
+`sudo apt-get install git build-essential octave liboctave-dev gawk`
 
 
 ### Hidden Markov Toolkit

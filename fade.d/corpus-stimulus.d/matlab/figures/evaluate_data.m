@@ -152,9 +152,9 @@ for ico=1:num_combinations
       invalidtrain(ide) = true;
     end
 
-
-    table_data(end+1,:) = {sprintf('%s_%s_%f',experiment,subtitle_string,ind_variable_select) [level(ide) deviation(ide)] info{ide}};
-
+    if ~invalidtrain & ~invalidrange
+      table_data(end+1,:) = {sprintf('%s_%s_%f',experiment,subtitle_string,ind_variable_select) [level(ide) deviation(ide)] info{ide}};
+    end
   end
 
   %% visualize data
@@ -206,8 +206,12 @@ for ico=1:num_combinations
   xlabel(xlabel_string);
   ylabel(ylabel_string);
 
-  xlim(x_range);
-  ylim(y_range);
+  if diff(x_range) > eps
+    xlim(x_range);
+  end
+  if diff(y_range) > eps
+    ylim(y_range);
+  end
   set(gca,'YTick',test_levels);
   set(gca,'YTick',test_levels*plot_yfactor);
   set(gca,'XTick',x_mod);
@@ -220,7 +224,7 @@ for ico=1:num_combinations
   title([title_string ' ' subtitle_string]);
 
   if savefigures
-    set(gcf,'PaperUnits','inches','PaperPosition',[0 0 4 4]);
+    set(gcf,'PaperUnits','inches','PaperPosition',[0 0 4 4].*1.4);
     print('-depsc2','-r300',[figures_path filesep experiment '_' subtitle_string '.eps']);
   end
 end

@@ -64,9 +64,9 @@ mkdir -p "${COD}"
 
 # Generate training data
 mkdir -p "${COD}/train"
-echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${COD}/train', ${SNRS}, ${TRAIN_SAMPELS}, ${SIL}, ${TRAIN_SEED});" | run-matlab "mixing" || exit 1
+echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', ${SNRS}, ${TRAIN_SAMPELS}, ${SIL}, ${TRAIN_SEED});" | run-matlab "mixing" || exit 1
 
 # Generate test data
 mkdir -p "${COD}/test"
-echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${COD}/test', ${SNRS}, ${TEST_SAMPELS}, ${SIL}, ${TEST_SEED});" | run-matlab "mixing" || exit 1
+echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', ${SNRS}, ${TEST_SAMPELS}, ${SIL}, ${TEST_SEED});" | run-matlab "mixing" || exit 1
 

@@ -49,6 +49,7 @@ for ico=1:num_conditions
         file_string = ['_' num2str(isa,file_format)];
         filename = [target_dir filesep type_string filesep condition_string filesep parameter_string filesep class_string file_string '.wav'];
         [signal fs] = fhandle(classes{icl}, parameters{ipa}, conditions{ico});
+        signal = [zeros(round(fs*0.1),size(signal,2));signal;zeros(round(fs*0.1),size(signal,2))];
         audiowrite(filename, signal, fs, 'BitsPerSample', 32);
         count = count + 1;
       end

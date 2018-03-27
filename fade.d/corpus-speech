@@ -99,5 +99,7 @@ $CONFIG && exit 0
 # Make directories for source files
 mkdir -p "${WKD}/source/speech"
 mkdir -p "${WKD}/source/noise"
+mkdir -p "${WKD}/source/hrir-speech"
+mkdir -p "${WKD}/source/hrir-noise"
 
 echo "${SCN} finished"

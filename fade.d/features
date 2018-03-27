@@ -22,6 +22,7 @@ if [ $# -gt 0 ]; then
 else
   OVERRIDE=false
 fi
+
 # Prepare additional arguments for passing them to the feature extraction
 [ -n "$1" ] && FEATURES="$1"
 if [ $# -gt 1 ]; then
@@ -46,7 +47,11 @@ MFD="${WKD}/config/features/matlab"
 MFS="${WKD}/config/features/matlab/feature_extraction.m"
 
 # Set feature extraction source directory
-COD="${WKD}/corpus"
+if [ -d "${WKD}/processing" ]; then
+  FSD="${WKD}/processing"
+else
+  FSD="${WKD}/corpus"
+fi
 
 # Feature target directory
 FTD="${WKD}/features"
@@ -81,20 +86,19 @@ if [ ! -f "${MFS}" ]; then
     exit 1
 fi
 
-# Prepare filelists if corpus directory exists
-if [ -e "${COD}" ]; then
-  # Check if the feature extraction script and source files exists
-  NUM_SOURCE_FILES=$(find -L "${COD}" -type f -iname '*.wav' | head -n1 | wc -l)
+# Prepare filelists if source directory exists
+if [ -e "${FSD}" ]; then
+  # Check if the source files exists
+  NUM_SOURCE_FILES=$(find -L "${FSD}" -type f -iname '*.wav' | head -n1 | wc -l)
   if [ "${NUM_SOURCE_FILES}" -lt 1 ]; then
-    echo "no '*.wav' files found in '${COD}'"
+    echo "no '*.wav' files found in '${FSD}'"
     exit 1
   fi
 
   # Generate source and target lists and directories
   mkdir -p "${FCD}" || exit 1
-  echo "generate source list '${FCD}/sourcelist'"
-  echo "generate target list '${FCD}/targetlist'"
-  treelists "${COD}" "${FCD}/sourcelist" "${FTD}" "${FCD}/targetlist.tmp" || exit 1
+  echo "generate source '${FCD}/sourcelist' and target '${FCD}/targetlist' lists"
+  treelists "${FSD}" "${FCD}/sourcelist" "${FTD}" "${FCD}/targetlist.tmp" || exit 1
   sed -e 's/\.wav$/.htk/g' "${FCD}/targetlist.tmp" > "${FCD}/targetlist"
   rm "${FCD}/targetlist.tmp"
 fi
@@ -103,9 +107,9 @@ fi
 echo "configuration finished"
 $CONFIG && exit 0
 
-# Check that corpus directory exists
-if [ ! -d "${COD}" ]; then
-  echo "missing corpus directory '${COD}'"
+# Check that source directory exists
+if [ ! -d "${FSD}" ]; then
+  echo "missing source directory '${FSD}'"
   exit 1
 fi
 

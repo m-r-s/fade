@@ -2,7 +2,7 @@
 #
 # Simulation Framework for Auditory Discrimination Experiments (FADE)
 #
-# Copyright (C) 2014-2016 Marc René Schädler
+# Copyright (C) 2014-2018 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)
@@ -17,7 +17,7 @@ else
   export CONFIG=false
 fi
 # Set the version string
-export VERSION='1.0.0'
+export VERSION='1.2.0'
 # Set a detailed version description from git if possible
 export GITVERSION=$((cd "$DIR" && git describe --always) 2> /dev/null)
 
@@ -84,7 +84,7 @@ export PROJECT_VERSION=$((cd "${PROJECT}" && ls -1 ".${PROGRAM}-"* 2>/dev/null) 
 
 # If no version could be determined it is no valid project
 if [ -z "$PROJECT_VERSION" ]; then
-  echo "The directory '${PROJECT}' does not contain a  compatible project"
+  echo "The directory '${PROJECT}' does not contain a compatible project"
   exit 1
 fi
   

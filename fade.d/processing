@@ -1,0 +1,149 @@
+#!/bin/bash
+#USAGE      processing [PROCESSING] [PROCESSING_ARGUMENT1] [PROCESSING_ARGUMENT2] ...
+#TASK       perform signal processing on corpus
+#COPYRIGHT  (C) 2014-2018 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+#  Get arguments
+if [ $# -gt 0 ]; then
+  echo "processing config will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Prepare additional arguments for passing them to the signal processing 
+[ -n "$1" ] && PROCESSING="$1"
+if [ $# -gt 1 ]; then
+  shift
+  ARGS=("$@")
+  PROCARGS=
+  for ((I=0;$I<${#ARGS[@]};I++)); do
+    PROCARGS="${PROCARGS} \"${ARGS[$I]}\""
+  done
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Processing config directory
+PCD="${WKD}/config/processing"
+
+# Processing script directory
+PSD="${WKD}/config/processing/scripts"
+
+# Processing script file
+PSF="${WKD}/config/processing/scripts/batch_process"
+
+# Set signal processing source directory
+COD="${WKD}/corpus"
+
+# Processing target directory
+PTD="${WKD}/processing"
+
+# Skip processing if empty
+if [ -z "$PROCESSING" ]; then
+  echo "skip processing"
+  exit 0
+fi
+
+# Copy the requested signal processing scripts
+if ${OVERRIDE} || [ ! -e "${PSD}" ]; then
+  echo "update signal processing scripts '${PSD}'"
+  PROCESSING_SOURCE=$(cd "${UCD}" && [ -d "${PROCESSING}" ] && cd "${PROCESSING}" && echo "${PWD}")
+  if [ ! -d "${PROCESSING_SOURCE}" ]; then
+    PROCESSING_SOURCE="${SSD}/${PROCESSING}"
+  fi
+  if [ -d "${PROCESSING_SOURCE}" ]; then
+    [ -d "${PSD}" ] && rm -r "${PSD}"
+    echo "copy '${PROCESSING_SOURCE}' signal processing scripts"
+    mkdir -p "${PCD}" || exit 1
+    cp -L -r "${PROCESSING_SOURCE}" "${PSD}" || exit 1
+  fi
+fi
+
+# Save/load the signal processing arguments if any
+if ${OVERRIDE}; then
+  echo "save signal processing arguments to file '${PCD}/arguments'"
+  echo "${PROCARGS}" > "${PCD}/arguments"
+elif [ -z "${PROCARGS}" ] && [ -f "${PCD}/arguments" ]; then
+  echo "load signal processing arguments from file '${PCD}/arguments'"
+  PROCARGS=$(cat "${PCD}/arguments")
+fi
+
+# Check that signal processing script exists
+if [ ! -f "${PSF}" ]; then
+    echo "signal processing script '${PSF}' missing"
+    exit 1
+fi
+
+# Prepare filelists if corpus directory exists
+if [ -e "${COD}" ]; then
+  # Check if the source files exists
+  NUM_SOURCE_FILES=$(find -L "${COD}" -type f -iname '*.wav' | head -n1 | wc -l)
+  if [ "${NUM_SOURCE_FILES}" -lt 1 ]; then
+    echo "no '*.wav' files found in '${COD}'"
+    exit 1
+  fi
+
+  # Generate source and target lists and directories
+  mkdir -p "${PCD}" || exit 1
+  echo "generate source '${PCD}/sourcelist' and target '${PCD}/targetlist' lists"
+  treelists "${COD}" "${PCD}/sourcelist" "${PTD}" "${PCD}/targetlist" || exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Check that corpus directory exists
+if [ ! -d "${COD}" ]; then
+  echo "missing corpus directory '${COD}'"
+  exit 1
+fi
+
+# Clear target directory
+[ -d "${PTD}" ] && rm -r "${PTD}"
+mkdir -p "${PTD}" || exit 1
+
+# Create all neccessary target sub-directories
+echo "create target directories"
+mkdirlist "${PCD}/targetlist"
+
+# Default to one block
+[ -z "$PARALLEL" ] && PARALLEL=1
+
+# Perform signal processing in $PARALLEL blocks
+echo "perform parallel signal processing in $PARALLEL blocks"
+for ((I=1;$I<$[${PARALLEL}+1];I++)); do
+  ${PSF} "${PCD}/sourcelist" "${PCD}/targetlist" "${PARALLEL}" "${I}" "${PROCARGS}" &
+done
+
+# Wait for parallel threads to finish
+wait
+echo " finshed"
+
+# Check if all files were extracted
+NUM_PROCESSED_FILES=$(cat "${PCD}/targetlist" | wc -l)
+MISSING=$(checkfilelist "${PCD}/targetlist")
+if [ "${MISSING}" -eq 0 ]; then
+  echo "${NUM_PROCESSED_FILES} processed files found"
+else
+  echo "${MISSING} of ${NUM_PROCESSED_FILES} processed files missing"
+  exit 1
+fi
+
+echo "${SCN} finished"
+
+

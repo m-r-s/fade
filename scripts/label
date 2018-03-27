@@ -101,4 +101,3 @@ echo -e "$FILENAMES" | awk -v word="$WORD" -v ordered="$ORDERED" '
     print ".";
   }' > "$LABELS_FILE" || exit 1
 
-

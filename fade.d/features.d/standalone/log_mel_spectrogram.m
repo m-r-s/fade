@@ -8,6 +8,7 @@ function [log_mel_spec freq_centers] = log_mel_spectrogram(signal, fs, win_shift
 %   win_length  window length in ms
 %   freq_range  [lower upper] frequency
 %   num_bands   number of Mel-bands in freq_range
+%   band_factor spectral super-sampling factor
 %
 % - Log Mel-spectrogram v1.0 -
 %
@@ -43,9 +44,9 @@ if nargin < 4 || isempty(win_length)
   win_length = 25; % ms
 end
 
-% Set the default frequency range from 64Hz to fs/2 (max. 16kHz)
+% Set the default frequency range from 64Hz to fs/2 (max. 12kHz)
 if nargin < 5 || isempty(freq_range)
-  freq_range = [64 min(floor(fs./2), 16000)];
+  freq_range = [64 min(floor(fs./2), 12000)];
 end
 
 % Cover the maximum frequency range with equally Mel-spaced filters

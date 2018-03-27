@@ -222,7 +222,7 @@ for iex=1:length(exptypes)
   ylabel('Slope at SRT [%/dB]');
 
   if savefigures
-    set(gcf,'PaperUnits','inches','PaperPosition',[0 0 6 6]);
+    set(gcf,'PaperUnits','inches','PaperPosition',[0 0 6 6].*1.4);
     print('-depsc2','-r300',[figures_path filesep exptype '.eps']);
   end
 end

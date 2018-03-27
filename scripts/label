@@ -61,7 +61,7 @@ echo -e "$FILENAMES" | awk -v word="$WORD" -v ordered="$ORDERED" '
     print "START_SPE";
     print "PRE_SIL";
     position = 0;
-    for (ip in positions) {
+    for (ip=1;ip<=length(positions);ip++) {
       if (ordered == "1") {
         prefix = 1;
       } else {

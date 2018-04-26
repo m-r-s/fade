@@ -10,15 +10,15 @@ function [log_mel_spec freq_centers] = log_mel_spectrogram(signal, fs, win_shift
 %   num_bands   number of Mel-bands in freq_range
 %   band_factor spectral super-sampling factor
 %
-% - Log Mel-spectrogram v1.0 -
+% - Log Mel-spectrogram v1.1 -
 %
-% This script extracts spectro-temporal representations called 
+% This script extracts spectro-temporal representations called
 % "logarithmically scaled Mel-spectrograms" from audio signals.
 % It roughly resembles basic auditory principles such as a limited spectral
 % resolution and a compressive intensity perception.
 % A detailed explanation is given in [1].
 %
-% Copyright (C) 2015 Marc René Schädler
+% Copyright (C) 2015-2018 Marc René Schädler
 % E-mail marc.r.schaedler@uni-oldenburg.de
 % Institute Carl-von-Ossietzky University Oldenburg, Germany
 %
@@ -26,7 +26,7 @@ function [log_mel_spec freq_centers] = log_mel_spectrogram(signal, fs, win_shift
 %
 % Release Notes:
 % v1.0 - Inital release
-%
+% v1.1 - Add option for spectral super-sampling and increase upper frequency limit
 
 %% Default settings and checks
 

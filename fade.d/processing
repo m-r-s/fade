@@ -52,25 +52,28 @@ COD="${WKD}/corpus"
 # Processing target directory
 PTD="${WKD}/processing"
 
-# Skip processing if empty
-if [ -z "$PROCESSING" ]; then
-  echo "skip processing"
-  exit 0
+# Copy the requested signal processing scripts
+if [ -n "$PROCESSING" ]; then
+  echo "try to copy script files for processing '${PROCESSING}'"
+  if [ ${OVERRIDE} ] || [ ! -e "${PSD}" ]; then
+    echo "update signal processing scripts '${PSD}'"
+    PROCESSING_SOURCE=$(cd "${UCD}" && [ -d "${PROCESSING}" ] && cd "${PROCESSING}" && echo "${PWD}")
+    if [ ! -d "${PROCESSING_SOURCE}" ]; then
+      PROCESSING_SOURCE="${SSD}/${PROCESSING}"
+    fi
+    if [ -d "${PROCESSING_SOURCE}" ]; then
+      [ -d "${PSD}" ] && rm -r "${PSD}"
+      echo "copy '${PROCESSING_SOURCE}' signal processing scripts"
+      mkdir -p "${PCD}" || exit 1
+      cp -L -r "${PROCESSING_SOURCE}" "${PSD}" || exit 1
+    fi
+  fi
 fi
 
-# Copy the requested signal processing scripts
-if ${OVERRIDE} || [ ! -e "${PSD}" ]; then
-  echo "update signal processing scripts '${PSD}'"
-  PROCESSING_SOURCE=$(cd "${UCD}" && [ -d "${PROCESSING}" ] && cd "${PROCESSING}" && echo "${PWD}")
-  if [ ! -d "${PROCESSING_SOURCE}" ]; then
-    PROCESSING_SOURCE="${SSD}/${PROCESSING}"
-  fi
-  if [ -d "${PROCESSING_SOURCE}" ]; then
-    [ -d "${PSD}" ] && rm -r "${PSD}"
-    echo "copy '${PROCESSING_SOURCE}' signal processing scripts"
-    mkdir -p "${PCD}" || exit 1
-    cp -L -r "${PROCESSING_SOURCE}" "${PSD}" || exit 1
-  fi
+# Skip processing if the corresponding script file does not exist
+if [ ! -e "$PSF" ]; then
+  echo "skip processing"
+  exit 0
 fi
 
 # Save/load the signal processing arguments if any

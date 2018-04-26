@@ -1,20 +1,20 @@
 # FADE - Simulation framework for auditory discrimination experiments
 This software can be used to model simple acoustical recognition, detection, and discrimination experiments.
 
-Copyright (C) 2014-2016 Marc René Schädler
+Copyright (C) 2014-2018 Marc René Schädler
 
 E-mail: marc.r.schaedler@uni-oldenburg.de
 
-The scripts provided in this software package can be used to perform the experiments described in [1], where the approach is explained in detail.
+The scripts provided in this software package can be used to perform the experiments described in [1] and [2], where the approach is explained in more detail.
 This reference implementation serves as starting point for those who want to reproduce the results or tinker around with it.
 In the current state, FADE is far from fully documented.
 We will provide documentation on demand.
 If you are intested in a specific piece of code, please ask.
 To get started, read this file carefully and look for the tutorials.
 
-Please note that FADE expects recordings to be single channel, 32-bit signed-integer wav files that are calibrated such that an RMS of 1 means 130 dB SPL.
+Please note that FADE expects recordings to be 32-bit signed-integer wav files that are calibrated such that an RMS of 1 means 130 dB SPL.
 The speech material for the German Matrix sentence test is not free.
-You can ask HörTech [2] for a license.
+You can ask HörTech [3] for a license.
 If you can't get or afford a license, please ask the author.
 
 
@@ -27,18 +27,12 @@ FADE was developed and tested in an Ubuntu Linux environment.
 Install Ubuntu Linux on the machine that you want to run FADE.
 Some additional packages are required which can be installed using the following command in a terminal:
 
-`sudo apt-get install git build-essential octave liboctave-dev gawk`
+`sudo apt-get install git build-essential octave octave-signal octave-general octave-control liboctave-dev gawk`
 
 
 ### Hidden Markov Toolkit
 FADE requires a working installation of the Hidden Markov Toolkit (HTK; http://htk.eng.cam.ac.uk/), where the HTKTools must be in your PATH.
 This basically means, if you can run `HVite` from the terminal, it should be fine.
-
-
-### GNU/Octave packages
-Some additional octave packages are required which can be installed using the following command in a terminal:
-
-`echo "pkg install -auto -forge general control signal" | octave-cli`
 
 
 ### FADE
@@ -80,7 +74,7 @@ information about it, is: `fade <project> info`
 ### Actions
 Almost all arguments are optional.
 The default values are stored in the corresponding `fade.d/<action>.cfg` file.
-The data output and configuration files are stored in the corresponding 
+The data output and configuration files are stored in the corresponding
 `./<action>/` and `./config/<action>/` project subdirectories, respectively.
 
 The configuration files (in `./config/<action>/`) are overwritten
@@ -100,6 +94,7 @@ Copies corpus-specific configuration files.
 Some relevant paths:
 
 - `fade.d/corpus-matrix.d/format.cfg` Definition of training an testing conditions
+- `source` The folder where the speech and noise recordings go
 
 
 #### Set up a corpus with psychoacoustic stimuli
@@ -125,6 +120,18 @@ Some relevant paths:
 - `./config/corpus/generate.cfg` Generation config file
 
 
+#### Process the corpus data (optional)
+`fade <project> processing [PROCESSINGNAME] [PROCESSING ARGUMENTS]`
+
+Processes the corpus data, e.g., with a hearing aid algorithm using openMHA.
+
+Some relevant paths:
+- `fade.d/processing.d/`    Some default signal processing setups (including openMHA)
+- `./config/processing/scripts/batch_process` Script used for batch processing
+- `./corpus`                Source directory
+- `./processing`            Target directory
+
+
 #### Set up the experimental conditions (train/test)
 `fade <project> corpus-format`
 
@@ -144,10 +151,11 @@ Additional MATLAB ARGUMENTS will be passed as strings to the matlab feature extr
 
 Some relevant paths:
 
-- `fade.d/features.d/`   Some default features including MFCCs
-- `./config/features/matlab/feature_extraction.m` Script used for extraction
-- `./corpus/`           Source directory
-- `./features/`         Target directory
+- `fade.d/features.d/`      Some default features including MFCCs
+- `./config/features/matlab/feature_extraction.m` Script used for feature extraction
+- `./processing/`           Preferred source directory
+- `./corpus/`               Alternative source directory
+- `./features/`             Target directory
 
 
 #### Train models with training data
@@ -238,4 +246,7 @@ Do the same as `fade` but stop after configuration, and hence only write to the 
 [1] A simulation framework for auditory discrimination experiments: Revealing the importance of across-frequency processing in speech perception
 Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B., Journal of the Acoustical Society of America, Volume 139, Issue 5, pp. 2708–2723, URL: http://link.aip.org/link/?JAS/139/2708 (2016).
 
-[2] URL http://hoertech.hausdeshoerens-oldenburg.de/cgi-bin/wPermission.cgi?file=/web_en/produkte/produktindex.shtml
+[2] Objective Prediction of Hearing Aid Benefit Across Listener Groups Using Machine Learning: Speech Recognition Performance With Binaural Noise-Reduction Algorithms
+Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B. Trends in Hearing, https://doi.org/10.1177/2331216518768954 (2018).
+
+[3] URL http://www.hoertech.de/en/medical-devices/olsa.html

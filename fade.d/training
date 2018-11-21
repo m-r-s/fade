@@ -85,7 +85,7 @@ if [ -z "${MERGE}" ]; then
 fi
 
 # Default to one block
-[ -z "$PARALLEL" ] && PARALLEL=1
+[ -z "$PARALLEL_TRAINING" ] && PARALLEL_TRAINING=1
 
 # Generate parameters file
 # Providing training parameter as argumens will overwrite parameters
@@ -113,11 +113,11 @@ if ! mkdir -p "${TRD}"; then
   exit 1
 fi
 
-# Perform training in $PARALLEL blocks
-echo "perform parallel training in $PARALLEL blocks"
+# Perform training in $PARALLEL_TRAINING blocks
+echo "perform parallel training in $PARALLEL_TRAINING blocks"
 export PATH
-for ((I=0;$I<$[${PARALLEL}];I++)); do
-  batchtrain "${PARALLEL}" "${I}" &
+for ((I=0;$I<$[${PARALLEL_TRAINING}];I++)); do
+  batchtrain "${PARALLEL_TRAINING}" "${I}" &
 done
 
 # Wait for parallel threads to finish

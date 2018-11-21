@@ -60,7 +60,7 @@ elif [ ! -d "${CCD}/format" ]; then
 fi
 
 # Default to one block
-[ -z "$PARALLEL" ] && PARALLEL=1
+[ -z "$PARALLEL_RECOGNITION" ] && PARALLEL_RECOGNITION=1
 
 # Check for test lists and data
 NUM_TEST_LISTS=$(find -L "${CCD}/conditions" -type f -iname 'test' | head -n1 | wc -l)
@@ -97,11 +97,11 @@ if ! mkdir -p "${RED}"; then
   exit 1
 fi
 
-# Perform recognition in $PARALLEL blocks
-echo "perform parallel recognition in $PARALLEL blocks"
+# Perform recognition in $PARALLEL_RECOGNITION blocks
+echo "perform parallel recognition in $PARALLEL_RECOGNITION blocks"
 export PATH
-for ((I=0;$I<$[${PARALLEL}];I++)); do
-  batchrecog "${PARALLEL}" "${I}" &
+for ((I=0;$I<$[${PARALLEL_RECOGNITION}];I++)); do
+  batchrecog "${PARALLEL_RECOGNITION}" "${I}" &
 done
 
 # Wait for parallel threads to finish

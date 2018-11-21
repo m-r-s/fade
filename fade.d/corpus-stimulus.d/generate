@@ -32,12 +32,6 @@ if [ -z "${TRAIN_SAMPELS}" ]; then
 elif [ -z "${TEST_SAMPELS}" ]; then
   echo "test samples not defined"
   exit 1
-elif [ -z "${TRAIN_SEED}" ]; then
-  echo "Train seed not defined"
-  exit 1
-elif [ -z "${TEST_SEED}" ]; then
-  echo "Test seed not defined"
-  exit 1
 fi
 
 # Check that matlab generation script exists
@@ -52,9 +46,9 @@ mkdir -p "${COD}"
 
 # Generate training data
 mkdir -p "${COD}/train"
-echo "generate('${COD}/train', ${TRAIN_SAMPELS}, ${TRAIN_SEED});" | run-matlab "${CGS}" || exit 1
+echo "generate('${COD}/train', ${TRAIN_SAMPELS}, 1);" | run-matlab "${CGS}" || exit 1
 
 # Generate test data
 mkdir -p "${COD}/test"
-echo "generate('${COD}/test', ${TEST_SAMPELS}, ${TEST_SEED});" | run-matlab "${CGS}" || exit 1
+echo "generate('${COD}/test', ${TEST_SAMPELS}, 2);" | run-matlab "${CGS}" || exit 1
 

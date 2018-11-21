@@ -2,7 +2,7 @@
 #
 # This script generates a matrix sentence corpus
 #
-# Copyright (C) 2014-2016 Marc René Schädler
+# Copyright (C) 2014-2018 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)
@@ -38,12 +38,6 @@ elif [ -z "${SNRS}" ]; then
 elif [ -z "${SIL}" ]; then
   echo "Start/end silence not defined"
   exit 1
-elif [ -z "${TRAIN_SEED}" ]; then
-  echo "Train seed not defined"
-  exit 1
-elif [ -z "${TEST_SEED}" ]; then
-  echo "Test seed not defined"
-  exit 1
 fi
 
 # Check that speech and noise data exists
@@ -62,11 +56,23 @@ fi
 [ -d "${COD}" ] && rm -r "${COD}"
 mkdir -p "${COD}"
 
-# Generate training data
+# Default to one block
+if [ -z "$PARALLEL_CORPUS" ]; then
+  PARALLEL_CORPUS=1
+fi
+
+# Generate training and testing data
+echo "perform corpus generation in (max) ${PARALLEL_CORPUS} blocks"
 mkdir -p "${COD}/train"
-echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', ${SNRS}, ${TRAIN_SAMPELS}, ${SIL}, ${TRAIN_SEED});" | run-matlab "mixing" || exit 1
-
-# Generate test data
 mkdir -p "${COD}/test"
-echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', ${SNRS}, ${TEST_SAMPELS}, ${SIL}, ${TEST_SEED});" | run-matlab "mixing" || exit 1
+if [ $PARALLEL_CORPUS -gt 1 ]; then
+  echo "disable verbose ouput because multiple threads will be used"
+  VERBOSE=0
+else
+  VERBOSE=1
+fi
+for ((I=1;$I<$[${PARALLEL_CORPUS}+1];I++)); do
+  (echo "snrs=${SNRS};snrs=snrs(${I}:${PARALLEL_CORPUS}:length(snrs));mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', snrs, ${TRAIN_SAMPELS}, ${SIL}, ${I}, ${VERBOSE});mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', snrs, ${TEST_SAMPELS}, ${SIL}, ${PARALLEL_CORPUS}+${I}, ${VERBOSE});" | run-matlab "mixing") &
+done
 
+wait || exit 1

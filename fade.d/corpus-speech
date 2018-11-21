@@ -1,7 +1,7 @@
 #!/bin/bash
-#USAGE      corpus-matrix [TRAIN_SAMPELS] [TEST_SAMPELS] [SNRS] [SIL] [TRAIN_SEED] [TEST_SEED]
+#USAGE      corpus-matrix [TRAIN_SAMPELS] [TEST_SAMPELS] [SNRS] [SIL]
 #TASK       set up a matrix sentence corpus
-#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+#COPYRIGHT  (C) 2014-2018 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)
@@ -20,8 +20,7 @@ SSD="${DIR}/${SCN}.d"
 [ -n "$2" ] && TEST_SAMPELS="$2"
 [ -n "$3" ] && SNRS="$3"
 [ -n "$4" ] && SIL="$4"
-[ -n "$5" ] && TRAIN_SEED="$5"
-[ -n "$6" ] && TEST_SEED="$6"
+
 if [ $# -gt 0 ]; then
   echo "corpus generation config will be overwritten"
   OVERRIDE=true
@@ -63,8 +62,6 @@ if [ ! -e "${CCD}/generate.cfg" ] || $OVERRIDE; then
   echo "TEST_SAMPELS='${TEST_SAMPELS}'" >> "${CCD}/generate.cfg"
   echo "SNRS='${SNRS}'" >> "${CCD}/generate.cfg"
   echo "SIL='${SIL}'" >> "${CCD}/generate.cfg"
-  echo "TRAIN_SEED='${TRAIN_SEED}'" >> "${CCD}/generate.cfg"
-  echo "TEST_SEED='${TEST_SEED}'" >> "${CCD}/generate.cfg"
 fi
 
 # Update environments

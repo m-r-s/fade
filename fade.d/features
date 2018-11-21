@@ -1,7 +1,7 @@
 #!/bin/bash
 #USAGE      features [FEATURES] [FEATURES_ARGUMENT1] [FEATURES_ARGUMENT2] ...
 #TASK       run the feature extraction
-#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+#COPYRIGHT  (C) 2014-2018 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)
@@ -82,8 +82,8 @@ fi
 
 # Check that feature extraction script exists
 if [ ! -f "${MFS}" ]; then
-    echo "feature extracton script '${MFS}' missing"
-    exit 1
+  echo "feature extracton script '${MFS}' missing"
+  exit 1
 fi
 
 # Prepare filelists if source directory exists
@@ -122,12 +122,14 @@ echo "create target directories"
 mkdirlist "${FCD}/targetlist"
 
 # Default to one block
-[ -z "$PARALLEL" ] && PARALLEL=1
+if [ -z "$PARALLEL_FEATURES" ]; then
+  PARALLEL_FEATURES=1
+fi
 
-# Perform feature extraction in $PARALLEL blocks
-echo "perform parallel feature extraction in $PARALLEL blocks"
-for ((I=1;$I<$[${PARALLEL}+1];I++)); do
-  echo "feature_batch_extract('${FCD}/sourcelist', '${FCD}/targetlist', ${PARALLEL}, ${I} ${FEXARGS})" | run-matlab 'ascii-tools' 'features' "${MFD}" &
+# Perform feature extraction in $PARALLEL_FEATURES blocks
+echo "perform parallel feature extraction in ${PARALLEL_FEATURES} blocks"
+for ((I=1;$I<$[${PARALLEL_FEATURES}+1];I++)); do
+  echo "feature_batch_extract('${FCD}/sourcelist', '${FCD}/targetlist', ${PARALLEL_FEATURES}, ${I} ${FEXARGS})" | run-matlab 'ascii-tools' 'features' "${MFD}" &
 done
 
 # Wait for parallel threads to finish

@@ -17,16 +17,12 @@ else
   export CONFIG=false
 fi
 # Set the version string
-export VERSION='2.0.0'
+export VERSION='2.1.1'
 # Set a detailed version description from git if possible
 export GITVERSION=$((cd "$DIR" && git describe --always) 2> /dev/null)
 
 # Add directory to path
 PATH="${PATH}:${DIR}"
-
-# Load configuration file
-CGF="${DIR}/${PROGRAM}.cfg"
-[ -f "${CGF}" ] && source "${CGF}"
 
 # Load additional scripts from sub-script directory
 SSD="${DIR}/${PROGRAM}.d"
@@ -103,6 +99,17 @@ fi
 # Log this access
 mkdir -p "${PROJECT}/log"
 echo $(date --iso-8601=seconds)" ${VERSION} '${GITVERSION}' ${SCN} '${PROJECT}' ${@}" >> "log/access.log"
+
+# Load parallel configuration file
+PFC="config/parallel.cfg"
+if [ -f "${PFC}" ]; then
+  source "${PFC}"
+  export PARALLEL_CORPUS
+  export PARALLEL_PROCESSING
+  export PARALLEL_FEATURES
+  export PARALLEL_TRAINING
+  export PARALLEL_RECOGNITION
+fi
 
 # Get the desired action
 ACTION=$1

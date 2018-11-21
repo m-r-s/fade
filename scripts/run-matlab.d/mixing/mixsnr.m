@@ -1,5 +1,5 @@
-function mixsnr(speech_dir, noise_dir, hrir_speech_dir, hrir_noise_dir, target_dir, snrs, num_samples, sil, seed)
-% usage: mixsnr(speech_dir, noise_dir, hrir_speech_dir, hrir_noise_dir, target_dir, snrs, num_samples, sil, seed)
+function mixsnr(speech_dir, noise_dir, hrir_speech_dir, hrir_noise_dir, target_dir, snrs, num_samples, sil, seed, verbose)
+% usage: mixsnr(speech_dir, noise_dir, hrir_speech_dir, hrir_noise_dir, target_dir, snrs, num_samples, sil, seed, verbose)
 %
 % Load wav files in "speech_dir" and "noise_dir".
 % Padd the speech signal with "sil" seconds of silence.
@@ -11,7 +11,7 @@ function mixsnr(speech_dir, noise_dir, hrir_speech_dir, hrir_noise_dir, target_d
 % The output is structured for use with FADE.
 %
 
-% Copyright (C) 2014-2016 Marc René Schädler
+% Copyright (C) 2014-2018 Marc René Schädler
 
 if is_octave
   rand('twister', seed);
@@ -53,44 +53,65 @@ hrir_speech = cell(size(hrir_speech_files));
 hrir_noise = cell(size(hrir_noise_files));
 
 total = num_noise_files.*num_snrs.*num_samples;
-fprintf('a total of %i files will be generated\n', total);
-fprintf('random seed is: %i\n', seed);
-fprintf('prepend/append speech signal with %.2f/%.2f s of silence\n', sil(1), sil(2));
+if verbose
+  fprintf('a total of %i files will be generated\n', total);
+  fprintf('random seed is: %i\n', seed);
+  fprintf('prepend/append speech signal with %.2f/%.2f s of silence\n', sil(1), sil(2));
+end
 
 % Load noise files
-fprintf('load %i noise files\n', num_noise_files);
+if verbose
+  fprintf('load %i noise files\n', num_noise_files);
+end
 for i=1:num_noise_files
   [signal, fs] = audioread([noise_dir filesep noise_files{i}]);
-  fprintf('loaded noise file ''%s'' with average level %.2f dB\n', noise_files{i}, 10*log10(mean(signal(:).^2)));
+  signal = single(signal);
+  if verbose
+    fprintf('loaded noise file ''%s'' with average level %.2f dB\n', noise_files{i}, 10*log10(mean(signal(:).^2)));
+  end
   assert(checkfs(fs),'different sample frequencies!');
   % extend noise to minimum length
   if size(signal,1) < fs.*min_noise_duration
-    fprintf('extend noise signal to %i seconds duration\n', min_noise_duration);
+    if verbose
+      fprintf('extend noise signal to %i seconds duration\n', min_noise_duration);
+    end
     signal = crossfade_extend(signal, round(fs.*crossfade_overlap), ceil(fs.*min_noise_duration));
   end
   noise{i} = signal;
   [~, noise_files{i}] = fileparts(noise_files{i});
   if ~isempty(strfind(noise_files{i}, '_'))
-    fprintf('underscore (_) in ''%s'' will be replaced with dash (-)\n', noise_files{i});
+    if verbose
+      fprintf('underscore (_) in ''%s'' will be replaced with dash (-)\n', noise_files{i});
+    end
     noise_files{i} = strrep(noise_files{i},'_','-');
   end
 end
 
 % Load speech files
-fprintf('load %i speech files\n', num_speech_files);
+if verbose
+  fprintf('load %i speech files\n', num_speech_files);
+end
 for i=1:num_speech_files
   [signal, fs] = audioread([speech_dir filesep speech_files{i}]);
-  fprintf('loaded speech file ''%s'' with average level %.2f dB\n', speech_files{i}, 10*log10(mean(signal(:).^2)));
+  signal = single(signal);
+  if verbose  
+    fprintf('loaded speech file ''%s'' with average level %.2f dB\n', speech_files{i}, 10*log10(mean(signal(:).^2)));
+  end
   assert(checkfs(fs), 'different sample frequencies!');
   speech{i} = [zeros(round(fs*sil(1)),size(signal,2)); signal; zeros(round(fs*sil(2)),size(signal,2))];
   [~, speech_files{i}] = fileparts(speech_files{i});
 end
 
 % Load HRIRs für speech samples
-fprintf('load %i HRIRs files (impulse responses) for speech samples\n', num_hrir_speech_files);
+if verbose
+  fprintf('load %i HRIRs files (impulse responses) for speech samples\n', num_hrir_speech_files);
+end
 for i=1:num_hrir_speech_files
   [signal, fs] = audioread([hrir_speech_dir filesep hrir_speech_files{i}]);
-  fprintf('loaded HRIR file ''%s'' for speech samples with level (%.2f+65) dB\n', hrir_speech_files{i}, 10*log10(sum(signal(:).^2)));
+  signal = single(signal);
+  if verbose
+    fprintf('loaded HRIR file ''%s'' for speech samples with level (%.2f+65) dB\n', hrir_speech_files{i}, 10*log10(sum(signal(:).^2)));
+  end
   signal = signal .* 10.^(65./20);
   assert(checkfs(fs),'different sample frequencies!');
   hrir_speech{i} = signal;
@@ -98,10 +119,15 @@ for i=1:num_hrir_speech_files
 end
 
 % Load HRIRs für noise samples
-fprintf('load %i HRIRs  files (impulse responses) for noise samples\n', num_hrir_noise_files);
+if verbose
+  fprintf('load %i HRIRs  files (impulse responses) for noise samples\n', num_hrir_noise_files);
+end
 for i=1:num_hrir_noise_files
   [signal, fs] = audioread([hrir_noise_dir filesep hrir_noise_files{i}]);
-  fprintf('loaded HRIR file ''%s'' for noise samples with level (%.2f+65) dB\n', hrir_noise_files{i}, 10*log10(sum(signal(:).^2)));
+  signal = single(signal);
+  if verbose
+    fprintf('loaded HRIR file ''%s'' for noise samples with level (%.2f+65) dB\n', hrir_noise_files{i}, 10*log10(sum(signal(:).^2)));
+  end
   signal = signal .* 10.^(65./20);
   assert(checkfs(fs),'different sample frequencies!');
   hrir_noise{i} = signal;
@@ -110,33 +136,42 @@ end
 
 % Shuffle HRIR files for speech samples (if any)
 if num_hrir_speech_files > 0
-  fprintf('speech samples will be processed with HRIR\n');
+  if verbose
+    fprintf('speech samples will be processed with HRIR\n');
+  end
   num_hrir_speech_rep = ceil(num_samples./num_hrir_speech_files);
   hrir_speech_idx = repmat(1:num_hrir_speech_files,1,num_hrir_speech_rep);
   [~, shuffle_idx] = sort(rand(size(hrir_speech_idx)));
   hrir_speech_idx = hrir_speech_idx(shuffle_idx);
 else
-  fprintf('signals will not be processed with HRIR\n');
+  if verbose
+    fprintf('signals will not be processed with HRIR\n');
+  end
   hrir_speech_idx = [];
 end
 
 % Shuffle HRIR files for noise samples (if any)
 if num_hrir_noise_files > 0
-  fprintf('noise samples will be processed with HRIR\n');
+  if verbose
+    fprintf('noise samples will be processed with HRIR\n');
+  end
   num_hrir_noise_rep = ceil(num_samples./num_hrir_noise_files);
   hrir_noise_idx = repmat(1:num_hrir_noise_files,1,num_hrir_noise_rep);
   [~, shuffle_idx] = sort(rand(size(hrir_noise_idx)));
   hrir_noise_idx = hrir_noise_idx(shuffle_idx);
 else
-  fprintf('signals will not be processed with HRIR\n');
+  if verbose
+    fprintf('signals will not be processed with HRIR\n');
+  end
   hrir_noise_idx = [];
 end
 
 fs = checkfs;
 t0 = 0;
 count = 0;
-
-fprintf('sample frequency is %.2f Hz\n',fs);
+if verbose
+  fprintf('sample frequency is %.2f Hz\n',fs);
+end
 tic;
 for inoi=1:num_noise_files
   noise_signal = noise{inoi};
@@ -201,7 +236,7 @@ for inoi=1:num_noise_files
         end
       end
       % Apply gain and mix signals
-      signal = speech_signal .* 10.^(snr./20) + noise_tmp;
+      signal = speech_signal .* single(10.^(snr./20)) + noise_tmp;
       assert(checkchannels(size(signal,2)),'different number of channels!');
       audiowrite(filename, signal, fs, 'BitsPerSample', 32);
       count = count+1;
@@ -210,7 +245,9 @@ for inoi=1:num_noise_files
   end
 end
 fprintf('#\n');
-fprintf('signals have %i channels\n',checkchannels);
+if verbose
+  fprintf('signals have %i channels\n',checkchannels);
+end
 end
 
 function signal = crossfade_extend(signal, crossfade, len)

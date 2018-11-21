@@ -1,0 +1,53 @@
+#!/bin/bash
+#USAGE      parallel [CORPUS_THREADS] [PROCESSING_THREADS] [FEATURES_THREADS] [TRAINING_THREADS] [RECOGNITION_THREADS] 
+#TASK       set the number of threads for each task
+#COPYRIGHT  (C) 2014-2018 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+#  Get arguments
+if [ $# -gt 0 ]; then
+  echo "parallel config will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Parallel config file
+PCF="${WKD}/config/parallel.cfg"
+
+[ -n "$1" ] && CORPUS_THREADS="$1"
+[ -n "$2" ] && PROCESSING_THREADS="$2"
+[ -n "$3" ] && FEATURES_THREADS="$3"
+[ -n "$4" ] && TRAINING_THREADS="$4"
+[ -n "$5" ] && RECOGNITION_THREADS="$5"
+
+if ${OVERRIDE} || [ ! -e  "${PCF}" ]; then
+  echo "update parallel config file '${PCF}'"
+  # Print parameters
+  echo "corpus threads        '${CORPUS_THREADS}'"
+  echo "processing threads    '${PROCESSING_THREADS}'"
+  echo "features threads      '${FEATURES_THREADS}'"
+  echo "training threads      '${TRAINING_THREADS}'"
+  echo "recognition threads   '${RECOGNITION_THREADS}'"
+  echo "PARALLEL_CORPUS='${CORPUS_THREADS}'" > ${PCF}
+  echo "PARALLEL_PROCESSING='${PROCESSING_THREADS}'" >> ${PCF}
+  echo "PARALLEL_FEATURES='${FEATURES_THREADS}'" >> ${PCF}
+  echo "PARALLEL_TRAINING='${TRAINING_THREADS}'" >> ${PCF}
+  echo "PARALLEL_RECOGNITION='${RECOGNITION_THREADS}'" >> ${PCF}
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+echo "${SCN} finished"

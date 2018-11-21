@@ -125,12 +125,12 @@ echo "create target directories"
 mkdirlist "${PCD}/targetlist"
 
 # Default to one block
-[ -z "$PARALLEL" ] && PARALLEL=1
+[ -z "$PARALLEL_PROCESSING" ] && PARALLEL_PROCESSING=1
 
-# Perform signal processing in $PARALLEL blocks
-echo "perform parallel signal processing in $PARALLEL blocks"
-for ((I=1;$I<$[${PARALLEL}+1];I++)); do
-  ${PSF} "${PCD}/sourcelist" "${PCD}/targetlist" "${PARALLEL}" "${I}" "${PROCARGS}" &
+# Perform signal processing in $PARALLEL_PROCESSING blocks
+echo "perform parallel signal processing in $PARALLEL_PROCESSING blocks"
+for ((I=1;$I<$[${PARALLEL_PROCESSING}+1];I++)); do
+  ${PSF} "${PCD}/sourcelist" "${PCD}/targetlist" "${PARALLEL_PROCESSING}" "${I}" "${PROCARGS}" &
 done
 
 # Wait for parallel threads to finish

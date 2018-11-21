@@ -25,6 +25,8 @@ if ischar(listener)
   listener = str2num(listener);
 end
 
+persistent config;
+
 % Config id string
 configid = sprintf('c%.0f', fs, listener);
 

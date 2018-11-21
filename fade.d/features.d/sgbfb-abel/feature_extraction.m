@@ -54,8 +54,8 @@ signal_right = signal(:,2);
 [log_melspec_left melspec_freqs_left] = log_mel_spectrogram(signal_left, fs, [], [], [], [], 2);
 [log_melspec_right melspec_freqs_right] = log_mel_spectrogram(signal_right, fs, [], [], [], [], 2);
 % Get left and right hearing thresholds
-ht_left = interp1(loss_freqs(1,:), loss_spl(1,:), melspec_freqs_left, 'extrap');
-ht_right = interp1(loss_freqs(2,:), loss_spl(2,:), melspec_freqs_right, 'extrap');
+ht_left = interp1(loss_freqs(1,:), loss_spl(1,:), melspec_freqs_left, 'linear', 'extrap');
+ht_right = interp1(loss_freqs(2,:), loss_spl(2,:), melspec_freqs_right, 'linear', 'extrap');
 % Only represent signal portions above the threshold
 log_melspec_left = max(bsxfun(@minus, log_melspec_left, ht_left.'), 0);
 log_melspec_right = max(bsxfun(@minus, log_melspec_right, ht_right.'), 0);

@@ -22,6 +22,9 @@ fi
 # Working directory is the current directory
 WKD="${PWD}"
 
+# Create config directory
+[ ! -e "${WKD}/config" ] && mkdir -p "${WKD}/config"
+
 # Parallel config file
 PCF="${WKD}/config/parallel.cfg"
 

@@ -16,19 +16,16 @@ if ischar(filelist_save)
   filelist_save = textread(filelist_save,'%s','delimiter','\n');
 end
 
-if length(filelist_load) == length(filelist_save) 
+if length(filelist_load) == length(filelist_save)
   num_files = length(filelist_load);
 end
 
 frameperiod = 1/100; %seconds
 
-asciifill = '01234567899';
-
 for i=block:blocks:num_files
   [signal fs] = audioread(filelist_load{i});
   features = feature_extraction(signal, fs, varargin{:});
   writehtk(filelist_save{i}, features.', frameperiod, 9);
-  fprintf(asciifill(1+floor(i/num_files*(length(asciifill)-1))));
+  fprintf('.');
 end
-fprintf('#');
 end

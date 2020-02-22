@@ -50,7 +50,7 @@ echo -e "$FILENAMES" | \
       if (match($0,"^w")) {
         sub("^w","");
         split($0,weights,",");
-        for (iw in weights) {
+        for (iw=1;iw<=length(weights);iw++) {
           if (iw > 1) {
             printf(" ");
           }
@@ -70,12 +70,12 @@ paste -d':' \
     {
       split($1,labels," ");
       split($2,trans," ");
-      for (il in labels) {
+      for (il=1;il<=length(labels);il++) {
         if (il > 1) {
           printf " ";
         }
         present = 0;
-        for (it in trans) {
+        for (it=1;it<=length(trans);it++) {
           if (trans[it] == labels[il]) {
             present = 1;
             delete trans[it];
@@ -116,7 +116,7 @@ paste -d':' "${OUTDIR}/matches" "${OUTDIR}/weights" | \
     } else {
       useweights = 0;
     }
-    for (i in matches) {
+    for (i=1;i<=length(matches);i++) {
       num_items_sum[i]++;
       if (matches[i] == 1) {
         num_found++;
@@ -139,15 +139,15 @@ paste -d':' "${OUTDIR}/matches" "${OUTDIR}/weights" | \
     END {
       num_items_sum_sum = 0;
       num_found_sum_sum = 0;
-      for (i in num_found_sum) {
+      for (i=1;i<=length(num_found_sum);i++) {
         num_found_sum_sum += num_found_sum[i];
       }
-      for (i in num_items_sum) {
+      for (i=1;i<=length(num_items_sum);i++) {
         num_items_sum_sum += num_items_sum[i];
       }
       if (num_files > 0 && num_items_sum_sum > 0) {
         printf("%i %i %i %i %f %.0f",num_items_sum_sum,num_found_sum_sum,num_files,correct_files,score_sum,averagelikelihood);
-        for (i in num_items_sum) {
+        for (i=1;i<=length(num_items_sum);i++) {
           printf(" %i %i",num_items_sum[i],num_found_sum[i]);
         }
       }

@@ -114,15 +114,16 @@ if ! mkdir -p "${TRD}"; then
 fi
 
 # Perform training in $PARALLEL_TRAINING blocks
-echo "perform parallel training in $PARALLEL_TRAINING blocks"
+echo "perform parallel training in ${PARALLEL_TRAINING} blocks"
 export PATH
 for ((I=0;$I<$[${PARALLEL_TRAINING}];I++)); do
-  batchtrain "${PARALLEL_TRAINING}" "${I}" &
+  batchtrain "$I" &
 done
 
 # Wait for parallel threads to finish
 wait
-echo " finshed"
+echo ""
+echo "finshed"
 
 # Check if all models exists
 NUM_MODELS=$(ls -1 "${TRD}" | wc -l)

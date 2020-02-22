@@ -282,11 +282,21 @@ cp hmminit/macros hmm0/macros
 [ -f hmm0/macros ] || cexit 1 "'hmm0/macros' missing"
 
 # Generate a simple dictionary
-echo "generate dictionary"
-cat models | tr -d "\r" | awk '{print $0 " " $0}' | sort -u > dictionary
+if [ ! -e 'dictionary' ]; then
+  cat models | tr -d "\r" | awk '{print $0 " " $0}' | sort -u > dictionary
+  echo "dictionary generated"
+fi
 [ -f dictionary ] || cexit 1 "missing 'dictionary'"
 NUM_DICT_ENTRIES=$(cat dictionary | wc -l)
-echo "dictionary generated: ${NUM_DICT_ENTRIES} entries"
+echo "dictionary has ${NUM_DICT_ENTRIES} entries"
+
+if [ -e 'words2phones' ]; then
+  HLEd -l '*' -d dictionary -i phonelabels words2phones labels
+  echo "converted word labels to phone labels"
+  mv labels wordlabels
+  mv phonelabels labels
+fi
+
 
 # Train models
 BINARY_FLAG=

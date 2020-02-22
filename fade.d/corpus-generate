@@ -39,6 +39,7 @@ $CONFIG && exit 0
 
 # Run corpus speech file generation script
 "${CCD}/generate" || exit 1
+echo ""
 
 # Check if files were generated
 NUM_FILES=$(find -L "${COD}" -type f -iname '*.wav' | wc -l)

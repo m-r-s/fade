@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# A function that starts a block of recognition scripts
+# A function that starts the recognition script
 #
 # Copyright (C) 2014-2016 Marc René Schädler
 
@@ -17,8 +17,7 @@ SSD="${DIR}/${SCN}.d"
 [ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
 
 # Get arguments
-[ -n "$1" ] && BLOCKS="$1"
-[ -n "$2" ] && BLOCK="$2"
+[ -n "$1" ] && BLOCK="$1"
 
 # Work directory is current directory
 WKD="${PWD}"
@@ -29,15 +28,9 @@ RCD="${WKD}/config/recognition"
 # Log directory
 LGD="${WKD}/log"
 
-# Check if blocks are specified and condition list exists
+# Check condition list exists
 if [ ! -f "${RCD}/conditionlist" ]; then
   echo "missing condition list '${RCD}/conditionlist'"
-  exit 1
-elif [ -z "${BLOCKS}" ]; then
-  echo "number of blocks not specified"
-  exit 1
-elif [ -z "${BLOCK}" ]; then
-  echo "block not specified"
   exit 1
 fi
 
@@ -48,21 +41,16 @@ if [ -z "${TEST_CONDITIONS}" ]; then
   exit 1
 fi
 
-# Ascii progress indicator
-ASCII_PROGRESS=(0 1 2 3 4 5 6 7 8 9 9)
-
 mkdir -p "${LGD}"
 LOGFILE="${LGD}/batchrecog-${BLOCK}.log"
 [ -e "${LOGFILE}" ] && rm "${LOGFILE}"
 
-for ((I=${BLOCK};$I<${#TEST_CONDITIONS[@]};I=I+${BLOCKS})); do
+for ((I=0;$I<${#TEST_CONDITIONS[@]};I++)); do
   CONDITION="${TEST_CONDITIONS[$I]}"
   if [ -n "$CONDITION" ]; then
     # Start recognition
     recog "${CONDITION}" &>> "${LOGFILE}" || exit 1
     # Indicate progress
-    echo -n "${ASCII_PROGRESS[$[${I}*${#ASCII_PROGRESS[@]}/${#TEST_CONDITIONS[@]}]]}"
+    echo -n "."
   fi
 done
-
-echo -n "#"

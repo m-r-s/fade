@@ -44,11 +44,23 @@ fi
 [ -d "${COD}" ] && rm -r "${COD}"
 mkdir -p "${COD}"
 
-# Generate training data
+# Default to one block
+if [ -z "$PARALLEL_CORPUS" ]; then
+  PARALLEL_CORPUS=1
+fi
+
+# Generate training and testing data
+echo "perform corpus generation in (max) ${PARALLEL_CORPUS} blocks"
 mkdir -p "${COD}/train"
-echo "generate('${COD}/train', ${TRAIN_SAMPELS}, 1);" | run-matlab "${CGS}" || exit 1
-
-# Generate test data
 mkdir -p "${COD}/test"
-echo "generate('${COD}/test', ${TEST_SAMPELS}, 2);" | run-matlab "${CGS}" || exit 1
+if [ $PARALLEL_CORPUS -gt 1 ]; then
+  echo "disable verbose ouput because multiple threads will be used"
+  VERBOSE=0
+else
+  VERBOSE=1
+fi
+for ((I=1;$I<$[${PARALLEL_CORPUS}+1];I++)); do
+  (echo "generate('${COD}/train', ${TRAIN_SAMPELS}, ${I}, ${VERBOSE}); generate('${COD}/test', ${TEST_SAMPELS}, $[${PARALLEL_CORPUS}+${I}], ${VERBOSE});" | run-matlab "${CGS}") &
+done
 
+wait || exit 1

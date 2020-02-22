@@ -72,7 +72,7 @@ else
   VERBOSE=1
 fi
 for ((I=1;$I<$[${PARALLEL_CORPUS}+1];I++)); do
-  (echo "snrs=${SNRS};snrs=snrs(${I}:${PARALLEL_CORPUS}:length(snrs));mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', snrs, ${TRAIN_SAMPELS}, ${SIL}, ${I}, ${VERBOSE});mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', snrs, ${TEST_SAMPELS}, ${SIL}, ${PARALLEL_CORPUS}+${I}, ${VERBOSE});" | run-matlab "mixing") &
+  (echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', ${SNRS}, ${TRAIN_SAMPELS}, ${SIL}, ${I}, ${VERBOSE}); mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', ${SNRS}, ${TEST_SAMPELS}, ${SIL}, ${PARALLEL_CORPUS}+${I}, ${VERBOSE});" | run-matlab "mixing") &
 done
 
 wait || exit 1

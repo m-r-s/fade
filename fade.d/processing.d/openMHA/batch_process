@@ -11,8 +11,6 @@ DIR=$(cd "$( dirname "$0" )" && pwd)
 IFS=$'\n' read -d '' -r -a SOURCEFILES < "$SOURCELIST"
 IFS=$'\n' read -d '' -r -a TARGETFILES < "$TARGETLIST"
 
-PROGRESS='0123456789#'
-
 for ((I=$[${OFFSET}-1];$I<${#SOURCEFILES[@]};I+=${INCREMENT})); do
   (cd "${DIR}" && mha "?read:${DIR}/openMHA.cfg" \
       "?read:${DIR}/file.cfg" \
@@ -20,6 +18,6 @@ for ((I=$[${OFFSET}-1];$I<${#SOURCEFILES[@]};I+=${INCREMENT})); do
       "io.out=${TARGETFILES[$I]}" \
       "cmd=start" \
       "cmd=quit" > /dev/null)
-  echo -n "${PROGRESS:$[10*${I}/${#SOURCEFILES[@]}]:1}"
+  echo -n "."
 done
 

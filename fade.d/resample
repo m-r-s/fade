@@ -1,0 +1,101 @@
+#!/bin/bash
+#USAGE      resample SAMPLERATE
+#TASK       resample wav files in the source directory of the project
+#COPYRIGHT  (C) 2014-2019 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+#  Get arguments
+if [ $# -gt 0 ]; then
+  echo "resample config will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Prepare additional arguments for passing them to the signal processing 
+[ -n "$1" ] && SAMPLERATE="$1"
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Processing config directory
+RCD="${WKD}/config/resample"
+
+# Source file directory
+SFD="${WKD}/source"
+
+# Save/load the feature extraction arguments if any
+if ${OVERRIDE}; then
+  mkdir -p "${RCD}"
+  echo "save samplerate for resampling to file '${RCD}/samplerate'"
+  echo "${SAMPLERATE}" > "${RCD}/samplerate"
+elif [ -z "${SAMPLERATE}" ] && [ -f "${RCD}/samplerate" ]; then
+  echo "load samplerate for resampling from file '${RCD}/samplerate'"
+  SAMPLERATE=$(cat "${RCD}/samplerate")
+fi
+
+# Check that samplerate is not empty
+if [ -z "${SAMPLERATE}" ]; then
+  echo "no samplerate was provided"
+  exit 1
+fi
+
+if [ -L "${SFD}" ]; then
+  echo "source directory is a link, cannot resample"
+  exit 1
+fi
+
+# Prepare filelist
+if [ -e "${SFD}" ]; then
+  find "${SFD}" -iname "*.wav" > "${RCD}/filelist"
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Check that source directory exists
+if [ ! -d "${SFD}" ]; then
+  echo "missing source directory '${SFD}'"
+  exit 1
+fi
+
+# Check that filelist exists
+if [ ! -e "${RCD}/filelist" ]; then
+  echo "missing file list '${RCD}/filelist'"
+  exit 1
+fi
+
+echo "Resample all source signals to samplerate ${SAMPLERATE} Hz"
+octave-cli --quiet --eval "
+  filelist = strsplit(fileread('${RCD}/filelist'),'\n');
+  numfiles = length(filelist);
+  for i=1:numfiles
+    if ~isempty(filelist{i})
+      filename = filelist{i};
+      [signal, fs] = audioread(filename);
+      signal = single(signal);
+      if fs ~= ${SAMPLERATE}
+        signal = resample(signal, ${SAMPLERATE}, fs);
+      end
+      audiowrite(filename, signal, ${SAMPLERATE}, 'BitsPerSample', 32);
+      printf('.');
+    end
+  end
+  printf('\n');
+  " || exit 1
+
+echo "${SCN} finished"
+
+

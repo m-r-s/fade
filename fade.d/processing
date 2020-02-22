@@ -25,14 +25,10 @@ fi
 
 # Prepare additional arguments for passing them to the signal processing 
 [ -n "$1" ] && PROCESSING="$1"
-if [ $# -gt 1 ]; then
-  shift
-  ARGS=("$@")
-  PROCARGS=
-  for ((I=0;$I<${#ARGS[@]};I++)); do
-    PROCARGS="${PROCARGS} \"${ARGS[$I]}\""
-  done
-fi
+shift 1
+
+# Processing arguments
+PROCARGS=("$@")
 
 # Working directory is the current directory
 WKD="${PWD}"
@@ -79,10 +75,10 @@ fi
 # Save/load the signal processing arguments if any
 if ${OVERRIDE}; then
   echo "save signal processing arguments to file '${PCD}/arguments'"
-  echo "${PROCARGS}" > "${PCD}/arguments"
+  echo "${PROCARGS[@]}" > "${PCD}/arguments"
 elif [ -z "${PROCARGS}" ] && [ -f "${PCD}/arguments" ]; then
   echo "load signal processing arguments from file '${PCD}/arguments'"
-  PROCARGS=$(cat "${PCD}/arguments")
+  PROCARGS=($(cat "${PCD}/arguments"))
 fi
 
 # Check that signal processing script exists
@@ -130,12 +126,13 @@ mkdirlist "${PCD}/targetlist"
 # Perform signal processing in $PARALLEL_PROCESSING blocks
 echo "perform parallel signal processing in $PARALLEL_PROCESSING blocks"
 for ((I=1;$I<$[${PARALLEL_PROCESSING}+1];I++)); do
-  ${PSF} "${PCD}/sourcelist" "${PCD}/targetlist" "${PARALLEL_PROCESSING}" "${I}" "${PROCARGS}" &
+  ${PSF} "${PCD}/sourcelist" "${PCD}/targetlist" "${PARALLEL_PROCESSING}" "${I}" "${PROCARGS[@]}" &
 done
 
 # Wait for parallel threads to finish
 wait
-echo " finshed"
+echo ""
+echo "finshed"
 
 # Check if all files were extracted
 NUM_PROCESSED_FILES=$(cat "${PCD}/targetlist" | wc -l)

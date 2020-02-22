@@ -9,10 +9,8 @@ shift 4
 IFS=$'\n' read -d '' -r -a SOURCEFILES < "$SOURCELIST"
 IFS=$'\n' read -d '' -r -a TARGETFILES < "$TARGETLIST"
 
-PROGRESS='0123456789#'
-
 for ((I=$[${OFFSET}-1];$I<${#SOURCEFILES[@]};I+=${INCREMENT})); do
   cp "${SOURCEFILES[$I]}" "${TARGETFILES[$I]}"
-  echo -n "${PROGRESS:$[10*${I}/${#SOURCEFILES[@]}]:1}"
+  echo -n "."
 done
 

@@ -177,7 +177,7 @@ case $MODE in
           printf("$sentence%04d = ( ",++sentences);
           split($0, positions, "-");
           position = 0;
-          for (ip in positions) {
+          for (ip=1;ip<=length(positions);ip++) {
             if (ip > 1) {
               printf(" ");
             }
@@ -229,7 +229,7 @@ case $MODE in
         awk '{
           split($0, positions, "-");
           position = 0;
-          for (ip in positions) {
+          for (ip=1;ip<=length(positions);ip++) {
             switch (positions[ip]) {
               case "":
                 output = "";

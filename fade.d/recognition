@@ -98,15 +98,16 @@ if ! mkdir -p "${RED}"; then
 fi
 
 # Perform recognition in $PARALLEL_RECOGNITION blocks
-echo "perform parallel recognition in $PARALLEL_RECOGNITION blocks"
+echo "perform parallel recognition in ${PARALLEL_RECOGNITION} blocks"
 export PATH
 for ((I=0;$I<$[${PARALLEL_RECOGNITION}];I++)); do
-  batchrecog "${PARALLEL_RECOGNITION}" "${I}" &
+  batchrecog "${I}" &
 done
 
 # Wait for parallel threads to finish
 wait
-echo " finshed"
+echo ""
+echo "finshed"
 
 # Check if all results exists
 NUM_RESULTS=$(ls -1 "${RED}" | wc -l)

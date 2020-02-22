@@ -15,10 +15,10 @@ fi
 PROJECT="$1"
 START="$2"
 
-STEPS=(corpus processing features training recognition evaluation figures)
+STEPS=(parallel corpus processing features training recognition evaluation figures)
 STARTED=false
 
-[ -n "$START" ] || START=corpus
+[ -n "$START" ] || START=parallel
 
 for STEP in ${STEPS[@]}; do
   [ "$START" == "$STEP" ] && STARTED=true

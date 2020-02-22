@@ -123,9 +123,7 @@ for iex=1:length(exptypes)
   best_train_snr = train_snrs(best_idx);
   train_dependency = interp2(test_snrs, train_snrs, pcorrect, best_srt, train_snrs);
   train_dependency_dev = interp2(test_snrs, train_snrs, pcorrect_deviation, best_srt, train_snrs);
-  train_fill = mean(train_dependency);
-  train_fill_dev = sqrt(sum((train_dependency_dev(:)./length(train_dependency_dev(:))).^2));
-  table_data(end+1,:) = {exptype [best_srt best_srt_deviation] 100.*[best_slope best_slope_deviation] best_train_snr 100.*[train_fill train_fill_dev]};
+  table_data(end+1,:) = {exptype [best_srt best_srt_deviation] 100.*[best_slope best_slope_deviation] best_train_snr};
 
   if ~isfinite(best_srt)
     disp('skip figure: no finite SRT');
@@ -228,14 +226,13 @@ for iex=1:length(exptypes)
 end
 
 if savefigures
-  eval_strings{1} = 'NOISE SRT SRT_dev SLOPE SLOPE_dev SRT_train FILL FILL_dev';
+  eval_strings{1} = 'NOISE SRT SRT_dev SLOPE SLOPE_dev SRT_train';
   for ire=1:size(table_data,1)
-    [noise_string srt slope info fill] = table_data{ire,:};
+    [noise_string srt slope info] = table_data{ire,:};
     srt_string = sprintf('%.2f %.2f',srt(1),srt(2));
     slope_string = sprintf('%.2f %.2f',slope(1),slope(2));
     info_string = sprintf('%.0f',info);
-    fill_string = sprintf('%.2f %.2f',fill(1),fill(2));
-    eval_strings{1+ire} = [noise_string ' ' srt_string ' ' slope_string ' ' info_string ' ' fill_string];
+    eval_strings{1+ire} = [noise_string ' ' srt_string ' ' slope_string ' ' info_string];
   end
 
   fid = fopen([figures_path filesep 'table.txt'],'w');

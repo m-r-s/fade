@@ -134,7 +134,8 @@ done
 
 # Wait for parallel threads to finish
 wait
-echo " finshed"
+echo ""
+echo "finshed"
 
 # Check if all files were extracted
 NUM_FEATURE_FILES=$(cat "${FCD}/targetlist" | wc -l)

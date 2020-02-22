@@ -152,7 +152,7 @@ for ico=1:num_combinations
       invalidtrain(ide) = true;
     end
 
-    if ~invalidtrain & ~invalidrange
+    if ~invalidtrain && ~invalidrange
       table_data(end+1,:) = {sprintf('%s_%s_%f',experiment,subtitle_string,ind_variable_select) [level(ide) deviation(ide)] info{ide}};
     end
   end

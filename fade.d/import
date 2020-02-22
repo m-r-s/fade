@@ -1,7 +1,7 @@
 #!/bin/bash
 #USAGE      import FILE [OVERWRITE]
 #TASK       load a project from an archive
-#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+#COPYRIGHT  (C) 2014-2019 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)
@@ -44,6 +44,6 @@ if [ $(ls -1 | grep -v -i '^log$' | wc -l) -gt 0 ]; then
 fi
 
 echo "importing project from '${ARCHIVE_FILE}'"
-(cd "${UCD}" && gunzip -c "${ARCHIVE_FILE}" | (cd "${WKD}" && tar xf -)) || exit 1
+(cd "${UCD}" && zstdcat "${ARCHIVE_FILE}" | (cd "${WKD}" && tar xf -)) || exit 1
 
 echo "${SCN} finished"

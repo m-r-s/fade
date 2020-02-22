@@ -243,8 +243,10 @@ Do the same as `fade` but stop after configuration, and hence only write to the 
 
 
 # References
-[1] Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B., "A simulation framework for auditory discrimination experiments: Revealing the importance of across-frequency processing in speech perception" Journal of the Acoustical Society of America, Volume 139, Issue 5, pp. 2708–2723, https://doi.org/10.1121/1.4948772 (2016)
+[1] A simulation framework for auditory discrimination experiments: Revealing the importance of across-frequency processing in speech perception
+Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B., Journal of the Acoustical Society of America, Volume 139, Issue 5, pp. 2708–2723, URL: http://link.aip.org/link/?JAS/139/2708 (2016).
 
-[2] Schädler, M. R., Warzybok, A., and Kollmeier, B. "Objective Prediction of Hearing Aid Benefit Across Listener Groups Using Machine Learning: Speech Recognition Performance With Binaural Noise-Reduction Algorithms" Trends in Hearing, https://doi.org/10.1177/2331216518768954 (2018)
+[2] Objective Prediction of Hearing Aid Benefit Across Listener Groups Using Machine Learning: Speech Recognition Performance With Binaural Noise-Reduction Algorithms
+Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B. Trends in Hearing, https://doi.org/10.1177/2331216518768954 (2018).
 
 [3] URL http://www.hoertech.de/en/medical-devices/olsa.html

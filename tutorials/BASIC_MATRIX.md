@@ -32,7 +32,6 @@ Copy the speech material to the subdirectory `source/speech/` and the noise file
 Once you copied the speech and noise samples, generate the training and test stimuli:
 > fade mat1 corpus-generate
 Depending on the speed of your PC this can take a few minutes.
-The remaining time for the current generation process is indicated from time to time.
 
 Look at the size of the project now:
 > fade mat1
@@ -44,20 +43,20 @@ This command takes the list of all files in the corpus and generates training an
 
 Extract features from the signals:
 > fade mat1 features
-By default, this command uses all available processors and extracts separable Gabor filter bank (SGBFB) features.
-The progress is indicated with digits from 0 to 9.
-Each digit represents a written feature file.
+By default, this command uses only one thread and extracts separable Gabor filter bank (SGBFB) features.
+The progress is indicated with dots.
+Each dot represents a written feature file.
 If you prefer Mel-frequency cepstral coefficient (MFCC) features try instead:
 > fade tin1 features mfcc
 
 Now we will train a Hidden Markov model (HMM) for each training condition:
 > fade mat1 training
-All available processors are used and the progress is indicated with digits again.
+One thread is used and the progress is indicated with dots again.
 The HMM definitions are plain text and can be accessed in the `training` subdirectory.
 
 After training, we want to recognize the testing data using the trained HMMs.
 > fade mat1 recognition
-And again all available processors are used.
+And again, one thread is used.
 You can go to the `recognition` subdirectory and read the transcripts.
 The folder names encode the training and the test conditions.
 

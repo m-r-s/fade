@@ -12,14 +12,10 @@ function mixsnr(speech_dir, noise_dir, hrir_speech_dir, hrir_noise_dir, target_d
 %
 
 % Copyright (C) 2014-2018 Marc René Schädler
-
-if is_octave
-  rand('twister', seed);
-else
+if ~is_octave()
   rng(seed, 'twister');
 end
 
-asciifill = '01234567899';
 min_noise_duration = 60; % seconds
 crossfade_overlap = 0.25; % seconds
 
@@ -137,7 +133,7 @@ end
 % Shuffle HRIR files for speech samples (if any)
 if num_hrir_speech_files > 0
   if verbose
-    fprintf('speech samples will be processed with HRIR\n');
+    fprintf('speech samples WILL be processed with HRIR\n');
   end
   num_hrir_speech_rep = ceil(num_samples./num_hrir_speech_files);
   hrir_speech_idx = repmat(1:num_hrir_speech_files,1,num_hrir_speech_rep);
@@ -145,7 +141,7 @@ if num_hrir_speech_files > 0
   hrir_speech_idx = hrir_speech_idx(shuffle_idx);
 else
   if verbose
-    fprintf('signals will not be processed with HRIR\n');
+    fprintf('speech samples WILL NOT be processed with HRIR\n');
   end
   hrir_speech_idx = [];
 end
@@ -153,7 +149,7 @@ end
 % Shuffle HRIR files for noise samples (if any)
 if num_hrir_noise_files > 0
   if verbose
-    fprintf('noise samples will be processed with HRIR\n');
+    fprintf('noise samples WILL be processed with HRIR\n');
   end
   num_hrir_noise_rep = ceil(num_samples./num_hrir_noise_files);
   hrir_noise_idx = repmat(1:num_hrir_noise_files,1,num_hrir_noise_rep);
@@ -161,14 +157,13 @@ if num_hrir_noise_files > 0
   hrir_noise_idx = hrir_noise_idx(shuffle_idx);
 else
   if verbose
-    fprintf('signals will not be processed with HRIR\n');
+    fprintf('noise samples WILL NOT be processed with HRIR\n');
   end
   hrir_noise_idx = [];
 end
 
 fs = checkfs;
 t0 = 0;
-count = 0;
 if verbose
   fprintf('sample frequency is %.2f Hz\n',fs);
 end
@@ -182,71 +177,72 @@ for inoi=1:num_noise_files
   for isnr=1:num_snrs
     snr = snrs(isnr);
     snr_dir = [noise_dir filesep sprintf('snr%+03i',snr)];
-    if ~exist(snr_dir,'dir');
-      mkdir(snr_dir);
-    end
-    for isam=1:num_samples
-      rep = floor((isam-1)./num_speech_files);
-      ispe = isam - num_speech_files.*rep;
-      sample_dir = [snr_dir filesep sprintf('rep%02d',rep)];
-      if ~exist(sample_dir,'dir');
-        mkdir(sample_dir);
-      end
-      filename = [sample_dir filesep speech_files{ispe} '.wav'];
-      speech_signal = speech{ispe};
-      start = 1+floor(rand(1).*(size(noise_signal,1)-size(speech_signal,1)-1));
-      stop = start+size(speech_signal,1)-1;
-      noise_tmp = noise_signal(start:stop,:);
-      % Broadcast channels if necessary
-      if size(speech_signal,2) > size(noise_tmp,2)
-        assert(size(noise_tmp,2) == 1,'cannot broadcast noise channels!');
-        noise_tmp = repmat(noise_tmp, 1, size(speech_signal,2));
-      elseif size(noise_tmp,2) > size(speech_signal,2)
-        assert(size(speech_signal,2) == 1,'cannot broadcast speech channels!');
-        speech_signal = repmat(speech_signal, 1, size(noise_tmp,2));
-      end
-      % Process speech samples with HRIR
-      if ~isempty(hrir_speech_idx)
-        hrir_speech_tmp = hrir_speech{hrir_speech_idx(isam)};
-        if size(speech_signal,2) > size(hrir_speech_tmp,2)
-          assert(size(hrir_speech_tmp,2) == 1,'cannot broadcast reverb channels!');
-          hrir_speech_tmp = repmat(hrir_speech_tmp, 1, size(speech_signal,2));
-        elseif size(hrir_speech_tmp,2) > size(speech_signal,2)
+    % MUTEX to prevent concurrent threads to generate the same condition
+    if unix(['mkdir "' snr_dir '" 2>/dev/null']) == 0
+      for isam=1:num_samples
+        rep = floor((isam-1)./num_speech_files);
+        ispe = isam - num_speech_files.*rep;
+        sample_dir = [snr_dir filesep sprintf('rep%02d',rep)];
+        if ~exist(sample_dir,'dir');
+          mkdir(sample_dir);
+        end
+        filename = [sample_dir filesep speech_files{ispe} '.wav'];
+        speech_signal = speech{ispe};
+        prespeech_signal = speech{randi(length(speech),1)};
+        start = 1+floor(rand(1).*(size(noise_signal,1)-size(speech_signal,1)-1));
+        stop = start+size(speech_signal,1)-1;
+        noise_tmp = noise_signal(start:stop,:);
+        % Broadcast channels if necessary
+        if size(speech_signal,2) > size(noise_tmp,2)
+          assert(size(noise_tmp,2) == 1,'cannot broadcast noise channels!');
+          noise_tmp = repmat(noise_tmp, 1, size(speech_signal,2));
+        elseif size(noise_tmp,2) > size(speech_signal,2)
           assert(size(speech_signal,2) == 1,'cannot broadcast speech channels!');
-          speech_signal = repmat(speech_signal, 1, size(hrir_speech_tmp,2));
+          speech_signal = repmat(speech_signal, 1, size(noise_tmp,2));
+          prespeech_signal = repmat(prespeech_signal, 1, size(noise_tmp,2));
         end
-        for ich=1:size(speech_signal,2)
-          speech_signal_tmp = fftconv2(speech_signal(:,ich), hrir_speech_tmp(:,ich), 'full');
-          speech_signal(:,ich) = real(speech_signal_tmp(1:size(speech_signal,1)));
+        % Process speech samples with HRIR
+        if ~isempty(hrir_speech_idx)
+          hrir_speech_tmp = hrir_speech{hrir_speech_idx(isam)};
+          if size(speech_signal,2) > size(hrir_speech_tmp,2)
+            assert(size(hrir_speech_tmp,2) == 1,'cannot broadcast reverb channels!');
+            hrir_speech_tmp = repmat(hrir_speech_tmp, 1, size(speech_signal,2));
+          elseif size(hrir_speech_tmp,2) > size(speech_signal,2)
+            assert(size(speech_signal,2) == 1,'cannot broadcast speech channels!');
+            speech_signal = repmat(speech_signal, 1, size(hrir_speech_tmp,2));
+            prespeech_signal = repmat(prespeech_signal, 1, size(hrir_speech_tmp,2));
+          end
+          for ich=1:size(speech_signal,2)
+            speech_signal_tmp = fftconv2([prespeech_signal(:,ich);speech_signal(:,ich)], hrir_speech_tmp(:,ich), 'full');
+            speech_signal(:,ich) = real(speech_signal_tmp(1+size(prespeech_signal,1):size(speech_signal,1)+size(prespeech_signal,1)));
+          end
         end
+        % Process noise samples
+        if ~isempty(hrir_noise_idx)
+          hrir_noise_tmp = hrir_noise{hrir_noise_idx(isam)};
+          if size(noise_tmp,2) > size(hrir_noise_tmp,2)
+            assert(size(hrir_noise_tmp,2) == 1,'cannot broadcast reverb channels!');
+            hrir_noise_tmp = repmat(hrir_noise_tmp, 1, size(noise_tmp,2));
+          elseif size(hrir_noise_tmp,2) > size(noise_tmp,2)
+            assert(size(noise_tmp,2) == 1,'cannot broadcast speech channels!');
+            noise_tmp = repmat(noise_tmp, 1, size(hrir_noise_tmp,2));
+          end
+          for ich=1:size(noise_tmp,2)
+            noise_tmp2 = fftconv2(noise_tmp(:,ich), hrir_noise_tmp(:,ich), 'full');
+            noise_tmp(:,ich) = real(noise_tmp2(1:size(noise_tmp,1)));
+          end
+        end
+        % Apply gain and mix signals
+        signal = speech_signal .* single(10.^(snr./20)) + noise_tmp;
+        assert(checkchannels(size(signal,2)),'different number of channels!');
+        audiowrite(filename, signal, fs, 'BitsPerSample', 32);
+        fprintf('.');
       end
-      % Process noise samples
-      if ~isempty(hrir_noise_idx)
-        hrir_noise_tmp = hrir_noise{hrir_noise_idx(isam)};
-        if size(noise_tmp,2) > size(hrir_noise_tmp,2)
-          assert(size(hrir_noise_tmp,2) == 1,'cannot broadcast reverb channels!');
-          hrir_noise_tmp = repmat(hrir_noise_tmp, 1, size(noise_tmp,2));
-        elseif size(hrir_noise_tmp,2) > size(noise_tmp,2)
-          assert(size(noise_tmp,2) == 1,'cannot broadcast speech channels!');
-          noise_tmp = repmat(noise_tmp, 1, size(hrir_noise_tmp,2));
-        end
-        for ich=1:size(noise_tmp,2)
-          noise_tmp2 = fftconv2(noise_tmp(:,ich), hrir_noise_tmp(:,ich), 'full');
-          noise_tmp(:,ich) = real(noise_tmp2(1:size(noise_tmp,1)));
-        end
-      end
-      % Apply gain and mix signals
-      signal = speech_signal .* single(10.^(snr./20)) + noise_tmp;
-      assert(checkchannels(size(signal,2)),'different number of channels!');
-      audiowrite(filename, signal, fs, 'BitsPerSample', 32);
-      count = count+1;
-      fprintf(asciifill(1+floor(count./total.*(length(asciifill)-1))));
     end
   end
 end
-fprintf('#\n');
 if verbose
-  fprintf('signals have %i channels\n',checkchannels);
+  fprintf('\nsignals have %i channels\n',checkchannels);
 end
 end
 

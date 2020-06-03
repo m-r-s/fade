@@ -1,8 +1,7 @@
 # FADE - Simulation framework for auditory discrimination experiments
 This software can be used to model simple acoustical recognition, detection, and discrimination experiments.
 
-Copyright (C) 2014-2018 Marc René Schädler
-
+Main author: 2014-2020 Marc René Schädler
 E-mail: marc.r.schaedler@uni-oldenburg.de
 
 The scripts provided in this software package can be used to perform the experiments described in [1] and [2], where the approach is explained in more detail.

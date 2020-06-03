@@ -17,7 +17,7 @@ else
   export CONFIG=false
 fi
 # Set the version string
-export VERSION='2.3.1'
+export VERSION='2.3.2'
 # Set a detailed version description from git if possible
 export GITVERSION=$((cd "$DIR" && git describe --always) 2> /dev/null)
 

@@ -9,11 +9,17 @@ end
 
 % if a filelist is a char array it is supposed to be a filelist
 if ischar(filelist_load)
-  filelist_load = textread(filelist_load,'%s','delimiter','\n');
+  fid_load = fopen(filelist_load);
+  tmp_load = textscan(fid_load,'%s','delimiter','\n');
+  filelist_load = tmp_load{1};
+  fclose(fid_load);
 end
 
 if ischar(filelist_save)
-  filelist_save = textread(filelist_save,'%s','delimiter','\n');
+  fid_save = fopen(filelist_save);
+  tmp_save = textscan(fid_save,'%s','delimiter','\n');
+  filelist_save = tmp_save{1};
+  fclose(fid_save);
 end
 
 if length(filelist_load) == length(filelist_save)

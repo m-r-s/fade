@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# requires 'jack_playrec': see https://github.com/HoerTech-gGmbH/jack_playrec
+
+# check for soundcard number with cat /proc/asound/cards
+
+# Defaults
+INPUTS=("system:capture_1" "system:capture_2")
+OUTPUTS=("system:playback_1" "system:playback_2")
+SOUNDDEVICE=USB # best use USB card by default
+SOUNDSTREAM=0
+SAMPLERATE=48000 # MUST be 48000 Hz
+FRAGSIZE=512 # MUST be pow 2
+PERIODS=4 #
+JACKLOG="${PWD}/log/jack.log"
+
+# 86.2 dB SPL == -35.005 dB FS
+
+# Lock execution for recording purpose.
+# Otherwise the processing script needed reprogramming
+while ! mkdir "/tmp/transceive-lock.d" &>/dev/null; do
+  sleep 10
+done
+trap $(rmdir "/tmp/transceive-lock.d") EXIT
+
+# Functions 
+finish() {
+  [ -n "$PROCESSINGPID" ] && kill "$PROCESSINGPID"  &> /dev/null  &
+  [ -n "$JACKPID" ] && kill "$JACKPID" &> /dev/null &
+  echo ""
+  exit 0
+}
+error() {
+  echo "error: ${1}"
+  [ -n "$PROCESSINGPID" ] && kill "$PROCESSINGPID" &> /dev/null &
+  [ -n "$JACKPID" ] && kill "$JACKPID" &> /dev/null &
+  echo ""
+  exit 1
+}
+
+# Paths
+DIR=$(cd "$( dirname "$0" )" && pwd)
+JACK_PLAYREC_PATH="${DIR}/jack_playrec"
+PATH=${PATH}:${JACK_PLAYREC_PATH}
+[ -d "${JACK_PLAYREC_PATH}" ] || error 'jack_playrec not found'
+
+# Variables
+SOURCELIST="$1"
+TARGETLIST="$2"
+INCREMENT="$3"
+OFFSET="$4"
+if [ $# -gt 5 ] && [ ! -z ${5} ]; then
+  SOUNDDEVICE="${5}"
+  INPUTS="${6}"
+  OUTPUTS="${7}"
+  shift 3
+fi
+shift 4
+
+# Initial audio setup
+killall -9 jackd &> /dev/null &
+sleep 1
+[ -z "$(pidof jackd)" ] || error 'zombie jackd'
+
+# Start JACK
+echo -n "Start JACK... "
+pasuspender -- jackd --realtime -d alsa -d "hw:${SOUNDDEVICE},${SOUNDSTREAM}" \
+  -p "$FRAGSIZE" -n "$PERIODS" -r "$SAMPLERATE" &>> "$JACKLOG" &
+sleep 0.5
+JACKPID=$(pidof jackd)
+[ -n "$JACKPID" ] || error 'start JACK'
+echo "OK"
+
+# Start the recordings
+IFS=$'\n' read -d '' -r -a SOURCEFILES < "$SOURCELIST"
+IFS=$'\n' read -d '' -r -a TARGETFILES < "$TARGETLIST"
+
+PROGRESS='0123456789#'
+# Do the recording
+for ((I=$[${OFFSET}-1];$I<${#SOURCEFILES[@]};I+=${INCREMENT})); do
+  jack_playrec -w -o "${TARGETFILES[$I]}" "${SOURCEFILES[$I]}" ${OUTPUTS[@]} ${INPUTS[@]}
+  echo -n "${PROGRESS:$[10*${I}/${#SOURCEFILES[@]}]:1}" 
+done
+
+finish

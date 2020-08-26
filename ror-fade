@@ -1,0 +1,298 @@
+#!/bin/bash
+#USAGE      fast-fade <project>#!/bin/sh
+#FLAGS      -f : features, use -f "<FEAT> [FEAT_OPTIONS]"
+#           -p : processing, use -p "<PROC> [PROC_OPTOPMS]"
+#           -e : ear, use -e "l|r|b|m"
+#           -s : sampling rate, use -s "48000"
+#           -n : number of train and test samples, use -n "<train samples> <test samples>"
+#           -h : hearing loss with frequency, use -h "<hearing_loss> <freqs>", e.g., "[0,0,0,0;0,0,0,0] [500,1000,2000,4000]" for "[hl_left;hl_right] [freq]"
+#           -t : target recognition rate, use -t 0.5 or anything between 0 and 1;
+#TASK       create and run a project defined by MEASUREMENT_STRING with as few as possible signals
+#COPYRIGHT  (C) 2020 David Hülsmeier-Reineke
+#DEPENDENCIES: fade, sqlite3
+
+# statistics
+start=$(date +%s)
+
+#################################################
+# Get dir of script and script name
+#################################################
+# Get the directory this script is stored in and its name
+DIR=$(dirname $0)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Load additional scripts
+export PATH="${PATH}:${DIR}/scripts"
+
+#################################################
+# Handle all functions of this script
+#################################################
+
+function error {
+  printf "\e[31m\\u2718  \e[39m%s\n" "${1}"
+  exit 1
+}
+
+function warning {
+  printf "\e[93m\\u26a0  \e[39m%s\n" "${1}"
+}
+
+function clean {
+  PROJECT="${1}"
+  PURITY="${2}"
+  [ -d "${PROJECT}/corpus" ]             && rm -r "${PROJECT}/corpus"
+  [ -d "${PROJECT}/corpus-select" ]      && rm -r "${PROJECT}/corpus-select"
+  [ -d "${PROJECT}/processing" ]         && rm -r "${PROJECT}/processing"
+  [ -d "${PROJECT}/features" ]           && rm -r "${PROJECT}/features"
+  [ -d "${PROJECT}/training" ]           && rm -r "${PROJECT}/training"
+  [ -d "${PROJECT}/recognition" ]        && rm -r "${PROJECT}/recognition"
+  [ -d "${PROJECT}/evaluation" ]         && rm -r "${PROJECT}/evaluation"
+  [ -d "${PROJECT}/figures" ]            && rm -r "${PROJECT}/figures"
+  [ -d "${PROJECT}/jobs" ]               && rm -r "${PROJECT}/jobs"
+  if [ "${PURITY}" == "full" ] ; then
+    find "${PROJECT}" -mindepth 1 -maxdepth 1 -type d -iname "sub-*" | while read line ; do
+      [ -d "${line}" ] && rm -r "${line}"
+    done
+    [ -d "${PROJECT}/log" ]                && rm    "${PROJECT}/log/"*.log
+    [ -d "${PROJECT}/pre-sim-corpus" ]     && rm -r "${PROJECT}/pre-sim-corpus"
+    [ -d "${PROJECT}/pre-sim-processing" ] && rm -r "${PROJECT}/pre-sim-processing"
+    [ -f "${PROJECT}/pre-sim-summary" ]    && rm    "${PROJECT}/pre-sim-summary"
+    [ -f "${PROJECT}/is-running" ]         && rm    "${PROJECT}/is-running"
+  fi
+}
+
+function print_info {
+  echo "--INFO BOX-----------------------------------------------------"
+  echo "| Project:                 '${PROJECT}'"
+  echo "| FEATURES (-f):           '${FEATURES}'"
+  echo "| FEATURE_OPTIONS:         '${FEATURE_OPTIONS}'"
+  echo "| PROCESSING (-p):         '${PROCESSING}'"
+  echo "| PROCESSING_OPTIONS:      '${PROCESSING_OPTIONS}'"
+  echo "| EAR (-e):                '${EAR}'"
+  echo "| SAMPLING_RATE (-s):      '${SAMPLING_RATE}'"
+  echo "| NUM_TRAIN_SAMPLES (-n):  '${NUM_TRAIN_SAMPLES}'"
+  echo "| NUM_TEST_SAMPLES:        '${NUM_TEST_SAMPLES}'"
+  echo "| HEARING_LOSS (-h):       '${HEARING_LOSS}'"
+  echo "| FREQS:                   '${FREQS}'"
+  echo "| TARGET_RECOGNITION_RATE: '${TARGET_RECOGNITION_RATE}'"
+  echo "---------------------------------------------------------------"
+}
+#################################################
+# Handle inputs
+#################################################
+# Get arguments, otherwise use as described in the configuration file
+[ -n "${1}" ]  && PROJECT="${1}"
+[ -n "${1}" ]  || error "Main project not defined"
+# use fullpath to project
+PROJECT=$(cd "${PROJECT}" && pwd)
+# load config of project if it exists
+PCF="${PROJECT}/config/config.cfg"
+[ -f "${PCF}" ] && source "${PCF}"
+
+shift 1 # shift since first argument has to be the project name
+while getopts "f:p:e:s:n:h:t:d" opt; do
+  [ -z "${OPTARG}" ] || OLEN=$(echo "${OPTARG}" | wc -w)
+  case $opt in
+    f ) # features & feature options
+      FEATURES="$(echo "${OPTARG}" | cut -d' ' -f1)"
+      if [ "$OLEN" -gt 1 ] ; then FEATURE_OPTIONS="$(echo "${OPTARG}" | cut -d' ' -f2-)" ; else FEATURE_OPTIONS='' ; fi
+      ;;
+    p ) # processing & processing options
+      PROCESSING="$(echo "${OPTARG}" | cut -d' ' -f1)"
+      if [ "$OLEN" -gt 1 ] ; then PROCESSING_OPTIONS="$(echo "${OPTARG}" | cut -d' ' -f2-)" ; else PROCESSING_OPTIONS='' ; fi
+      ;;
+    e ) # ear
+      EAR="${OPTARG}"
+      ;;
+    s ) # sampling rate
+      SAMPLING_RATE="${OPTARG}"
+      ;;
+    n ) # number of train and test samples samples
+      NUM_TRAIN_SAMPLES="$(echo "${OPTARG}" | cut -d' ' -f1)"
+      if [ "$OLEN" -gt 1 ] ; then NUM_TEST_SAMPLES="$(echo "${OPTARG}" | cut -d' ' -f2)" ; else error "error: number of test samples is undefined" ; fi
+      ;;
+    h ) # hearing loss (audiogram data) including the frequencies
+      HEARING_LOSS="$(echo "${OPTARG}" | cut -d' ' -f1)"
+      if [ "$OLEN" -gt 1 ] ; then FREQS="$(echo "${OPTARG}" | cut -d' ' -f2)" ; else error "error: Frequency range of hearing loss is undefined" ; fi
+      ;;
+    \?)
+      errors "Invalid option: -$OPTARG"
+      ;;
+    t ) # target recognition rate
+      TARGET_RECOGNITION_RATE="${OPTARG}"
+      ;;
+    d ) # restore defaults
+      warning "restoring default paramers"
+      [ -f "${CGF}" ] && source "${CGF}"
+      ;;
+    :)
+      error "Option -$OPTARG requires an argument." >&2
+      ;;
+  esac
+done
+
+print_info
+
+#################################################
+# Check dependencies
+#################################################
+[ -d "${PROJECT}/source/matrix" ] || error "Please create <PROJECT>/source/matrix dir with all speech wav-files"
+[ -d "${PROJECT}/source/names" ]  || error "Please create <PROJECT>/source/names dir with all name  wav-files"
+
+# get dependent variables that need saving
+NOISE=$(ls "${PROJECT}"/source/noise/*.wav)
+NOISE_LEVEL=$( echo "[signal,fs] = audioread('${NOISE}'); lvl = max(max(20*log10(sqrt(mean(signal.^2))) +130),0); printf('%+03.0f\n',lvl);" | run-matlab 'ror-fade' )
+SPEECH=($(ls "${PROJECT}"/source/matrix/*.wav ))
+SPEECH_LEVEL=$( echo "[signal,fs] = audioread('${SPEECH[0]}'); lvl = max(max(20*log10(sqrt(mean(signal.^2))) +130),0); printf('%+03.0f\n',lvl);" | run-matlab 'ror-fade' )
+
+TRAIN_CORRECTION=$(echo "x=[${TRAIN_CONTEXT}]; tc = unique(abs(diff(x))); printf('%1.0f\n',tc);" | run-matlab 'ror-fade' )
+TEST_CORRECTION=$(echo "x=[${TEST_CONTEXT}]; tc = unique(abs(diff(x))); printf('%1.0f\n',tc);" | run-matlab 'ror-fade' )
+[ $(echo "${TRAIN_CORRECTION}" | wc -w ) -eq 1 ] || error "non even spaced training context, see ${CGF}"
+[ $(echo "${TEST_CORRECTION}" | wc -w ) -eq 1 ] || error "non even spaced test context, see ${CGF}"
+
+# Store conifg, use code block "{...} > OUT" to redirect output (no subshell)
+{
+  echo "FEATURES='${FEATURES}'"
+  echo "FEATURE_OPTIONS='${FEATURE_OPTIONS[@]}'"
+  echo "PROCESSING='${PROCESSING}'"
+  echo "PROCESSING_OPTIONS='${PROCESSING_OPTIONS[@]}'"
+  echo "TRAINING_OPTIONS='${TRAINING_OPTIONS}'"
+  echo "RECOGNITION_OPTIONS='${RECOGNITION_OPTIONS}'"
+
+  echo "FO='${FEATURES} ${FEATURE_OPTIONS[@]}'"
+  echo "PO='${PROCESSING} ${PROCESSING_OPTIONS[@]}'"
+  echo "TO='${TRAINING_OPTIONS}'"
+  echo "RO='${RECOGNITION_OPTIONS}'"
+  echo "NUM_TRAIN_SAMPLES='${NUM_TRAIN_SAMPLES}'"
+  echo "NUM_TEST_SAMPLES='${NUM_TEST_SAMPLES}'"
+  echo "EAR='${EAR}'"
+  echo "SAMPLING_RATE='${SAMPLING_RATE}'"
+  echo "NOISE_LEVEL='${NOISE_LEVEL}'"
+  echo "SPEECH_LEVEL='${SPEECH_LEVEL}'"
+  echo "TARGET_RECOGNITION_RATE='${TARGET_RECOGNITION_RATE}'"
+  echo "TRAIN_CORRECTION='${TRAIN_CORRECTION}'"
+  echo "TEST_CORRECTION='${TEST_CORRECTION}'"
+} > "${PCF}"
+
+# create sqlite3 database and init variables #!FIXME: use alternative appraoch
+DATABANK="${PROJECT}/config/databank"
+[ -f "${DATABANK}" ] && rm "${DATABANK}"
+q_db.sh "${DATABANK}" "new" "ALL_TEST_SNRS_RECOG" ""
+q_db.sh "${DATABANK}" "new" "ALL_TRAIN_SNRS" ""
+q_db.sh "${DATABANK}" "new" "VIRTUAL_SNRS" ""
+q_db.sh "${DATABANK}" "new" "ALL_REAL_TRAIN_SNRS" ""
+q_db.sh "${DATABANK}" "new" "ALL_TEST_SNRS_RECORD" ""
+
+############################################
+# Estimate threshold based on hearing loss,
+#   and noise level
+############################################
+
+SNR_ESTIMATE=$( echo "guessSRT([${HEARING_LOSS}],${NOISE_LEVEL},${SPEECH_LEVEL},${FREQS});" | run-matlab 'ror-fade' )
+echo "SRT_guess = ${SNR_ESTIMATE} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"
+
+############################################
+# Run pre-simulation with matched SNR
+#   training using only names
+############################################
+
+# Clean up if neccessary
+clean "${PROJECT}" full
+
+# Linking souce/names to source/speech for presim
+NUM_PRE_SIM_SENT=$(ls -1 "${PROJECT}/source/names" | grep "wav$" | wc -l)
+# link source/names to source/speech
+[ -d "${PROJECT}/source/speech" ] && rm -r "${PROJECT}/source/speech"
+ln -s "${PROJECT}/source/names" "${PROJECT}/source/speech"
+
+# Format corpus (determine training/testing combinations)
+# 'o o' indicates to train within the same noise condition (first 'o') for matched SNR combinations (second 'o')
+sed -i "s/^CONDITION_CODE=.*$/CONDITION_CODE='o o'/g" "${PROJECT}/config/corpus/format.cfg"
+
+# Run pre sim and print some info
+SNR_ESTIMATE=$(q_pre_simulation.sh "${PROJECT}" "${SNR_ESTIMATE}" "${NUM_PRE_SIM_SENT}" "${EAR}" "${SAMPLING_RATE}" "${TARGET_RECOGNITION_RATE}")
+echo "SRT_pre   = ${SNR_ESTIMATE} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"
+
+############################################
+# Start fine grid simulation with
+#   matrix-corpus
+############################################
+
+## Preparation
+# Clean up pre-simulation
+clean "${PROJECT}"
+
+# link source/matrix to souce/speech
+[ -d "${PROJECT}/source/speech" ] && rm -r "${PROJECT}/source/speech"
+ln -s "${PROJECT}/source/matrix" "${PROJECT}/source/speech"
+
+# Set variables
+TRAIN_SNRS=($( echo "vals = round([${TRAIN_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'ror-fade' ))
+TEST_SNRS=($( echo "vals = round([${TEST_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'ror-fade' ))
+
+# Format corpus (determine training/testing combinations)
+# 'o a' indicates to train within the same noise condition ('o') for all SNR combinations ('a')
+sed -i "s/^CONDITION_CODE=.*$/CONDITION_CODE='o a'/g" "${PROJECT}/config/corpus/format.cfg"
+
+# prepare job dirs
+mkdir "${PROJECT}/jobs"
+for dirs in features training recognition record break_or_adjust; do
+  mkdir "${PROJECT}/jobs/${dirs}"
+  mkdir "${PROJECT}/jobs/${dirs}/pending"
+  mkdir "${PROJECT}/jobs/${dirs}/finished"
+done
+
+# create record jobs and run the simulation
+counter=0
+# one of each required for corpus-format
+echo "SUB_PROJECT='${PROJECT}/sub-main-${counter}'"  > "${PROJECT}/jobs/record/pending/r${counter}.job"
+echo "TRAIN_SNR='${TRAIN_SNRS[${counter}]}'"        >> "${PROJECT}/jobs/record/pending/r${counter}.job"
+echo "TEST_SNR='${TEST_SNRS[${counter}]}'"          >> "${PROJECT}/jobs/record/pending/r${counter}.job"
+counter=$((counter+1))
+for itest in ${TEST_SNRS[@]:1}; do
+  echo "SUB_PROJECT='${PROJECT}/sub-main-${counter}'"  > "${PROJECT}/jobs/record/pending/r${counter}.job"
+  echo "TRAIN_SNR=''"                                 >> "${PROJECT}/jobs/record/pending/r${counter}.job"
+  echo "TEST_SNR='${itest}'"                          >> "${PROJECT}/jobs/record/pending/r${counter}.job"
+  counter=$((counter+1))
+done
+for itrain in ${TRAIN_SNRS[@]:1}; do
+  echo "SUB_PROJECT='${PROJECT}/sub-main-${counter}'"   > "${PROJECT}/jobs/record/pending/r${counter}.job"
+  echo "TRAIN_SNR='${itrain}'"                         >> "${PROJECT}/jobs/record/pending/r${counter}.job"
+  echo "TEST_SNR=''"                                   >> "${PROJECT}/jobs/record/pending/r${counter}.job"
+  counter=$((counter+1))
+done
+
+# Run simulation
+# Fifo is required since wait does not work on subprocesses. (or at least not in an acceptable way)
+# The fifo is used to gracefully wait for the script to finish.
+# The pipe is filled in q_brake_or_adjust.sh
+
+[ -e "${PROJECT}/is-running" ] && rm "${PROJECT}/is-running"
+mkfifo "${PROJECT}/is-running"
+echo "Run simulation..."
+q_record.sh ${PROJECT} > /dev/null 2>&1 &
+cat "${PROJECT}/is-running"
+rm "${PROJECT}/is-running"
+wait
+# kill all child processes
+pkill -P $$
+
+# statistics
+end=$(date +%s)
+runtime=$((end-start))
+NPRE=$(find "${PROJECT}/sub-pre"*"/corpus"* -iname '*.wav' | sed -e '/source/d' -e '/corpus-all/d' |  wc -l)
+NPOST=$(find "${PROJECT}/sub-main"*"/corpus"* -iname '*.wav' | sed -e '/source/d' -e '/corpus-all/d' | wc -l)
+record_time_estimation=$( echo "disp(ceil(${NPOST}*2.5 + ${NPRE}*0.6 ))" | run-matlab )
+echo "${runtime} ${record_time_estimation}" | awk '{printf "sim_time: %5.2f min\nrec_time: %5.2f min\n" , $1 / 60 , $2 / 60}'
+SRT_final='nan'
+NOISE_NAME=$(basename "${NOISE}" | sed 's/\.wav//g' | tr '_' '-')
+[ -f "${PROJECT}/figures/table.txt" ] && SRT_final=$(grep "${NOISE_NAME}" "${PROJECT}/figures/table.txt" | awk '{print $2}')
+echo "SRT_final = ${SRT_final} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"

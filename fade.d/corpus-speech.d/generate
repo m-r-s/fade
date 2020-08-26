@@ -32,8 +32,11 @@ if [ -z "${TRAIN_SAMPELS}" ]; then
 elif [ -z "${TEST_SAMPELS}" ]; then
   echo "test samples not defined"
   exit 1
-elif [ -z "${SNRS}" ]; then
-  echo "SNRs not defined"
+elif [ -z "${TRAIN_SNRS}" ]; then
+  echo "Training SNRs not defined"
+  exit 1
+elif [ -z "${TEST_SNRS}" ]; then
+  echo "Testing SNRs not defined"
   exit 1
 elif [ -z "${SIL}" ]; then
   echo "Start/end silence not defined"
@@ -41,8 +44,8 @@ elif [ -z "${SIL}" ]; then
 fi
 
 # Check that speech and noise data exists
-NUM_SPEECH_FILES=$(find "${CSD}/speech" -type f -iname '*.wav' | wc -l)
-NUM_NOISE_FILES=$(find "${CSD}/noise" -type f -iname '*.wav' | wc -l)
+NUM_SPEECH_FILES=$(find -L "${CSD}/speech" -type f -iname '*.wav' | wc -l)
+NUM_NOISE_FILES=$(find -L "${CSD}/noise" -type f -iname '*.wav' | wc -l)
 if [ $NUM_SPEECH_FILES -lt 1 ]; then
   echo "no speech files found in '${CSD}/speech'"
   exit 1
@@ -72,7 +75,7 @@ else
   VERBOSE=1
 fi
 for ((I=1;$I<$[${PARALLEL_CORPUS}+1];I++)); do
-  (echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', ${SNRS}, ${TRAIN_SAMPELS}, ${SIL}, ${I}, ${VERBOSE}); mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', ${SNRS}, ${TEST_SAMPELS}, ${SIL}, ${PARALLEL_CORPUS}+${I}, ${VERBOSE});" | run-matlab "mixing") &
+  (echo "mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/train', ${TRAIN_SNRS}, ${TRAIN_SAMPELS}, ${SIL}, ${I}, ${VERBOSE}); mixsnr('${CSD}/speech', '${CSD}/noise', '${CSD}/hrir-speech', '${CSD}/hrir-noise', '${COD}/test', ${TEST_SNRS}, ${TEST_SAMPELS}, ${SIL}, ${PARALLEL_CORPUS}+${I}, ${VERBOSE});" | run-matlab "mixing") &
 done
 
 wait || exit 1

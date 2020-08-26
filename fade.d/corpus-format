@@ -1,6 +1,6 @@
 #!/bin/bash
 #USAGE      corpus-format [TRAIN_FORMAT] [TEST_FORMAT] [CONDITION_CODE]
-#TASK       generate training and test conditions based on files in corpus
+#TASK       generate training and test conditions based on files in corpus, processing, or features
 #COPYRIGHT  (C) 2014-2016 Marc René Schädler
 
 # Get the directory this script is stored in and its name
@@ -38,14 +38,24 @@ CFD="${WKD}/config/corpus/format"
 # Corpus conditions directory
 CCD="${WKD}/config/corpus/conditions"
 
-# Corpus directory
-COD="${WKD}/corpus"
+# Source directory
+if [ -e "${WKD}/corpus" ]; then
+  SRC="${WKD}/corpus"
+  SFE=".wav"
+elif [ -e "${WKD}/processing" ]; then
+  SRC="${WKD}/processing"
+  SFE=".wav"
+elif [ -e "${WKD}/features" ]; then
+  SRC="${WKD}/features"
+  SFE=".htk"
+fi
 
-# Check if corpus directory exists
-if [ ! -d "${COD}" ]; then
-  echo "missing corpus directory '${COD}'"
+# Check if source directory exists
+if [ ! -d "${SRC}" ]; then
+  echo "did not find any source directory '${SRC}'"
   exit 1
 fi
+echo "use '${SRC}' as source directory"
 
 # Save the requested format
 if ${OVERRIDE} || [ ! -e  "${CFF}" ]; then
@@ -57,13 +67,13 @@ if ${OVERRIDE} || [ ! -e  "${CFF}" ]; then
 fi
 
 # Check if configuration, training and test files exists
-NUM_TRAIN_FILES=$(find -L "${COD}/train" -type f -iname '*.wav' | head -n1 | wc -l)
-NUM_TEST_FILES=$(find -L "${COD}/test" -type f -iname '*.wav' | head -n1 | wc -l)
+NUM_TRAIN_FILES=$(find -L "${SRC}/train" -type f -iname '*'"${SFE}" | head -n1 | wc -l)
+NUM_TEST_FILES=$(find -L "${SRC}/test" -type f -iname '*'"${SFE}" | head -n1 | wc -l)
 if [ "${NUM_TRAIN_FILES}" -lt 1 ]; then
-  echo "no training files found in '${COD}/train'"
+  echo "no training files found in '${SRC}/train'"
   exit 1
 elif [ "${NUM_TEST_FILES}" -lt 1 ]; then
-  echo "no testing files found in '${COD}/test'"
+  echo "no testing files found in '${SRC}/test'"
   exit 1
 fi
 
@@ -101,8 +111,8 @@ mkdir -p "${CCD}"
 
 # Format the corpus
 mkdir -p "${CFD}"
-formatlist "${COD}/train" "${CFD}/train" "$TRAIN_FORMAT"
-formatlist "${COD}/test" "${CFD}/test" "$TEST_FORMAT"
+formatlist "${SRC}/train" "${CFD}/train" "$TRAIN_FORMAT"
+formatlist "${SRC}/test" "${CFD}/test" "$TEST_FORMAT"
 mkdir -p "${CCD}"
 buildconditions "${CFD}/train" "${CFD}/test" "${CCD}" "$CONDITION_CODE"
 

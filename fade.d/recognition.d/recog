@@ -175,9 +175,9 @@ fi
 BINARY_FLAG=
 [ "${BINARY}" == "1" ] && BINARY_FLAG="-B"
 PRUNING_FLAG=
-[ -n "${PRUNING}" ] && [ ${PRUNING} -gt 0 ] && PRUNING_FLAG="-t ${PRUNING}"
+[ -n "${PRUNING}" ] && PRUNING_FLAG="-t ${PRUNING}"
 MAXACTIVE_FLAG=
-[ -n "${MAXACTIVE}" ] && [ ${MAXACTIVE} -gt 0 ] && MAXACTIVE_FLAG="-u ${MAXACTIVE}"
+[ -n "${MAXACTIVE}" ] && MAXACTIVE_FLAG="-u ${MAXACTIVE}"
 # Recognize data
 HVite \
   -C config \

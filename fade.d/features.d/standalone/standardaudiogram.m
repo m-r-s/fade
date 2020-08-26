@@ -1,11 +1,12 @@
 function [loss freqs] = standardaudiogram(id)
-% audiograms of my subjects in experiment
+% bisgaard audiograms
 
 % frequencies
 freqs = [125   250   375   500   750  1000  1500  2000  3000  4000  6000  8000];
 
 % hearing levels
-losses = [...    
+losses = [...
+           0     0     0     0     0     0     0     0     0     0     0     0; ... % N0
           10    10    10    10    10    10    10    15    20    30    40    40; ... % N1
           20    20    20    20    22.5  25    30    35    40    45    50    50; ... % N2
           35    35    35    35    35    40    45    50    55    60    65    65; ... % N3
@@ -18,7 +19,5 @@ losses = [...
           30    30    30    35    47.5  60    70    75    80    80    85    85; ... % S3
     ];
 
-loss = losses(id,:);
+loss = losses(id+1,:);
 end
-
-

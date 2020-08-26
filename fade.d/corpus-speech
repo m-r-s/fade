@@ -18,7 +18,7 @@ SSD="${DIR}/${SCN}.d"
 # Get arguments
 [ -n "$1" ] && TRAIN_SAMPELS="$1"
 [ -n "$2" ] && TEST_SAMPELS="$2"
-[ -n "$3" ] && SNRS="$3"
+[ -n "$3" ] && TRAIN_SNRS="$3" && TEST_SNRS="$3"
 [ -n "$4" ] && SIL="$4"
 
 if [ $# -gt 0 ]; then
@@ -60,7 +60,8 @@ if [ ! -e "${CCD}/generate.cfg" ] || $OVERRIDE; then
   echo "# corpus generation config" > "${CCD}/generate.cfg"
   echo "TRAIN_SAMPELS='${TRAIN_SAMPELS}'" >> "${CCD}/generate.cfg"
   echo "TEST_SAMPELS='${TEST_SAMPELS}'" >> "${CCD}/generate.cfg"
-  echo "SNRS='${SNRS}'" >> "${CCD}/generate.cfg"
+  echo "TRAIN_SNRS='${TRAIN_SNRS}'" >> "${CCD}/generate.cfg"
+  echo "TEST_SNRS='${TEST_SNRS}'" >> "${CCD}/generate.cfg"
   echo "SIL='${SIL}'" >> "${CCD}/generate.cfg"
 fi
 

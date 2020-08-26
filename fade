@@ -17,7 +17,7 @@ else
   export CONFIG=false
 fi
 # Set the version string
-export VERSION='2.3.2'
+export VERSION='2.3.4'
 # Set a detailed version description from git if possible
 export GITVERSION=$((cd "$DIR" && git describe --always) 2> /dev/null)
 
@@ -83,7 +83,7 @@ if [ -z "$PROJECT_VERSION" ]; then
   echo "The directory '${PROJECT}' does not contain a compatible project"
   exit 1
 fi
-  
+
 # Enter the project
 echo "=== ${PROGRAM}-${VERSION} (${GITVERSION}) project '${PROJECT}' ==="
 cd "${PROJECT}" || exit 1
@@ -136,4 +136,3 @@ fi
 STOPTIME=$(date +%s)
 echo "=== completed in $[${STOPTIME}-${STARTTIME}] seconds ==="
 echo ""
-

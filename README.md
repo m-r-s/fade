@@ -248,4 +248,4 @@ Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B., Journal of the 
 [2] Objective Prediction of Hearing Aid Benefit Across Listener Groups Using Machine Learning: Speech Recognition Performance With Binaural Noise-Reduction Algorithms
 Schädler, M. R., Warzybok, A., Ewert, S. D., and Kollmeier, B. Trends in Hearing, https://doi.org/10.1177/2331216518768954 (2018).
 
-[3] URL http://www.hoertech.de/en/medical-devices/olsa.html
+[3] <https://www.hoertech.de/en/devices/olsa.html>

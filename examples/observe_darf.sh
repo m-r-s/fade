@@ -2,7 +2,7 @@
 
 # invoke this script with `watch observe_fast_fade.sh`
 
-pidof -x ror-fade &>/dev/null             && echo "1: ror-fade             runs" || echo "0: ror-fade             not"
+pidof -x darf &>/dev/null             && echo "1: darf             runs" || echo "0: darf             not"
 echo ""
 pidof -x q_pre_simulation.sh &>/dev/null  && echo "1: q_pre_simulation.sh  runs" || echo "0: q_pre_simulation.sh  not"
 pidof -x q_record.sh &>/dev/null          && echo "1: q_record.sh          runs" || echo "0: q_record.sh          not"

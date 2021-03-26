@@ -1,15 +1,40 @@
 #!/bin/bash
-#USAGE      fast-fade <project>#!/bin/sh
-#FLAGS      -f : features, use -f "<FEAT> [FEAT_OPTIONS]"
-#           -p : processing, use -p "<PROC> [PROC_OPTOPMS]"
-#           -e : ear, use -e "l|r|b|m"
-#           -s : sampling rate, use -s "48000"
-#           -n : number of train and test samples, use -n "<train samples> <test samples>"
-#           -h : hearing loss with frequency, use -h "<hearing_loss> <freqs>", e.g., "[0,0,0,0;0,0,0,0] [500,1000,2000,4000]" for "[hl_left;hl_right] [freq]"
-#           -t : target recognition rate, use -t 0.5 or anything between 0 and 1;
-#TASK       create and run a project defined by MEASUREMENT_STRING with as few as possible signals
-#COPYRIGHT  (C) 2020 David Hülsmeier-Reineke
-#DEPENDENCIES: fade, sqlite3
+# USAGE  darf <project>
+#        The project needs to be created prior to the DARF simulation, use
+#          fade <project> corpus-matrix
+#        to create the project and provide the required speech and noise files:
+#          speech: <project>/source/names and <project>/source/matrix
+#          noise:  <project>/source/noise
+#        to speed the simulations up, consider to configure the parallelization of the
+#        project befor running darf, see
+#          fade <project> parallel
+#        for further details (default: run all on one core)
+#
+# FLAGS  -f : features, use -f "<FEAT> [FEAT_OPTIONS]"
+#        -p : processing, use -p "<PROC> [PROC_OPTOPMS]"
+#        -e : ear, use -e "l|r|b|m" (left, right, both, monoaural)
+#        -s : sampling rate, use -s "48000" [Hz]
+#        -n : number of train and test samples, use -n "<train samples> <test samples>"
+#        -h : hearing loss with frequency, use
+#             -h "<hearing_loss> <freqs>", e.g.,
+#             -h "[0,0,0,0;0,0,0,0] [500,1000,2000,4000]" for "[hl_left;hl_right] [freq]"
+#        -t : target recognition rate, use -t 0.5 or anything between 0 and 1
+#
+# LITERATURE: Hülsmeier, D., Schädler, M. R., & Kollmeier, B. (2021).
+#             DARF: A data-reduced FADE version for simulations of
+#             speech recognition thresholds with real hearing aids.
+#             Hearing Research, 108217.
+#             https://arxiv.org/abs/2007.05378
+#
+# COPYRIGHT  (C) 2020-2021 David Hülsmeier-Reineke
+# DEPENDENCIES: fade, sqlite3
+#END USAGE
+
+# Print information if nothing is defined
+if [ $# -lt 1 ] ; then
+  tail -n+2 ${0} | sed '/#END USAGE/,$ d'
+  exit 0
+fi
 
 # statistics
 start=$(date +%s)
@@ -149,12 +174,12 @@ print_info
 
 # get dependent variables that need saving
 NOISE=$(ls "${PROJECT}"/source/noise/*.wav)
-NOISE_LEVEL=$( echo "[signal,fs] = audioread('${NOISE}'); lvl = max(max(20*log10(sqrt(mean(signal.^2))) +130),0); printf('%+03.0f\n',lvl);" | run-matlab 'ror-fade' )
+NOISE_LEVEL=$( echo "[signal,fs] = audioread('${NOISE}'); lvl = max(max(20*log10(sqrt(mean(signal.^2))) +130),0); printf('%+03.0f\n',lvl);" | run-matlab 'darf' )
 SPEECH=($(ls "${PROJECT}"/source/matrix/*.wav ))
-SPEECH_LEVEL=$( echo "[signal,fs] = audioread('${SPEECH[0]}'); lvl = max(max(20*log10(sqrt(mean(signal.^2))) +130),0); printf('%+03.0f\n',lvl);" | run-matlab 'ror-fade' )
+SPEECH_LEVEL=$( echo "[signal,fs] = audioread('${SPEECH[0]}'); lvl = max(max(20*log10(sqrt(mean(signal.^2))) +130),0); printf('%+03.0f\n',lvl);" | run-matlab 'darf' )
 
-TRAIN_CORRECTION=$(echo "x=[${TRAIN_CONTEXT}]; tc = unique(abs(diff(x))); printf('%1.0f\n',tc);" | run-matlab 'ror-fade' )
-TEST_CORRECTION=$(echo "x=[${TEST_CONTEXT}]; tc = unique(abs(diff(x))); printf('%1.0f\n',tc);" | run-matlab 'ror-fade' )
+TRAIN_CORRECTION=$(echo "x=[${TRAIN_CONTEXT}]; tc = unique(abs(diff(x))); printf('%1.0f\n',tc);" | run-matlab 'darf' )
+TEST_CORRECTION=$(echo "x=[${TEST_CONTEXT}]; tc = unique(abs(diff(x))); printf('%1.0f\n',tc);" | run-matlab 'darf' )
 [ $(echo "${TRAIN_CORRECTION}" | wc -w ) -eq 1 ] || error "non even spaced training context, see ${CGF}"
 [ $(echo "${TEST_CORRECTION}" | wc -w ) -eq 1 ] || error "non even spaced test context, see ${CGF}"
 
@@ -196,7 +221,7 @@ q_db.sh "${DATABANK}" "new" "ALL_TEST_SNRS_RECORD" ""
 #   and noise level
 ############################################
 
-SNR_ESTIMATE=$( echo "guessSRT([${HEARING_LOSS}],${NOISE_LEVEL},${SPEECH_LEVEL},${FREQS});" | run-matlab 'ror-fade' )
+SNR_ESTIMATE=$( echo "guessSRT([${HEARING_LOSS}],${NOISE_LEVEL},${SPEECH_LEVEL},${FREQS});" | run-matlab 'darf' )
 echo "SRT_guess = ${SNR_ESTIMATE} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"
 
 ############################################
@@ -235,8 +260,8 @@ clean "${PROJECT}"
 ln -s "${PROJECT}/source/matrix" "${PROJECT}/source/speech"
 
 # Set variables
-TRAIN_SNRS=($( echo "vals = round([${TRAIN_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'ror-fade' ))
-TEST_SNRS=($( echo "vals = round([${TEST_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'ror-fade' ))
+TRAIN_SNRS=($( echo "vals = round([${TRAIN_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'darf' ))
+TEST_SNRS=($( echo "vals = round([${TEST_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'darf' ))
 
 # Format corpus (determine training/testing combinations)
 # 'o a' indicates to train within the same noise condition ('o') for all SNR combinations ('a')

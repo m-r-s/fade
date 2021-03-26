@@ -76,10 +76,10 @@ while true; do
     # get vector with TRAIN_SNRs, TEST_SNRs, and rates
     TTR=$(cat ""${PROJECT}/pre-sim-summary"" | tr '_' ' ' | sed 's/snr//g' | awk '{print $2" "$4" "$6/$5; }')
     # interpolate next TRAIN_SNR and TEST_SNR
-    SNR_ESTIMATE=$( echo "interpolate_srt([${TTR}],${TARGET_RECOGNITION_RATE});" | run-matlab 'ror-fade')
+    SNR_ESTIMATE=$( echo "interpolate_srt([${TTR}],${TARGET_RECOGNITION_RATE});" | run-matlab 'darf')
     # check if recognition rates between 0.25 and 0.75 exist, if so break (i.e., TRAIN_SNR and TEST_SNR were interpolated from these values
     # assumption: nearly linear slope of psychometric function between these two rates
-    BREAK_CONDITION_THREE=$( echo "interpolate_srt_check_rr([${TTR}],${TARGET_RECOGNITION_RATE},${PRE_SIM_NUM_OPTIONS},${SNR_ESTIMATE});" | run-matlab 'ror-fade')
+    BREAK_CONDITION_THREE=$( echo "interpolate_srt_check_rr([${TTR}],${TARGET_RECOGNITION_RATE},${PRE_SIM_NUM_OPTIONS},${SNR_ESTIMATE});" | run-matlab 'darf')
     [ $BREAK_CONDITION_THREE -eq 1 ] && break
     #### log the actions
   else

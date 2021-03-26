@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPTS=(
-   ror-fade
+   darf
    # main scripts
    q_pre_simulation.sh
    q_record.sh

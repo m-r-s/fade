@@ -87,7 +87,7 @@ if [ $NUM_CONDITIONS_PER_TRAIN_SNR -ge 2 ] && [ $NUM_CONDITIONS_PER_TEST_SNR -ge
   echo "ats=[${ALL_TRAIN_SNRS}]" >> "${BAS}/gen_cases_config.txt"
   echo "gen_cases(ttr,thr,ats);" >> "${BAS}/gen_cases_config.txt"
 
-  CASES=($(echo "gen_cases([${TTR}],${TARGET_RECOGNITION_RATE},[${ALL_TRAIN_SNRS}])" | run-matlab 'ror-fade' | tr ',' ' '))
+  CASES=($(echo "gen_cases([${TTR}],${TARGET_RECOGNITION_RATE},[${ALL_TRAIN_SNRS}])" | run-matlab 'darf' | tr ',' ' '))
   # cases: true means do something, false means do nothing
   CASE_1="${CASES[0]}" # true if all rrs lower than target
                        # --> increase test snrs

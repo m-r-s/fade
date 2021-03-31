@@ -11,7 +11,7 @@ We will provide documentation on demand.
 If you are intested in a specific piece of code, please ask.
 To get started, read this file carefully and look for the tutorials.
 
-Please note that FADE expects recordings to be 32-bit signed-integer wav files that are calibrated such that an RMS of 1 means 130 dB SPL.
+Please note that FADE expects recordings to be 32-bit signed-integer wav files that are calibrated such that an RMS of 0 dB relative to full scale means 130 dB SPL.
 The speech material for the German Matrix sentence test is not free.
 You can ask HörTech [3] for a license.
 If you can't get or afford a license, please ask the author.

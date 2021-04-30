@@ -178,7 +178,7 @@ for ico=1:num_combinations
   x_range = setrange([x_emp(:); x_mod(:)],0.1);
   y_range = setrange([y_emp(:); test_levels(:)],0.1);
 
-  figure('Position',[0 0 400 400],'Visible','off');
+  figure('Position',[0 0 400 400],'Visible','on');
   h2 = plotdev(x_emp,y_emp,e_emp);
   hold on;
   h1 = plot(x_emp,y_emp,'-or');

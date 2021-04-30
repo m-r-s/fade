@@ -15,10 +15,6 @@ e = e(valid_mask);
 xval = [x fliplr(x)];
 yval = [y+e fliplr(y-e)];
 
-if (is_octave)
-  c = c.';
-end
-
 h = fill(xval,yval,c);
 set(h,'EdgeColor',c);
 end

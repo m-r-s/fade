@@ -131,7 +131,7 @@ for iex=1:length(exptypes)
   end
 
   %% Visualize data
-  figure('Position',[0 0 600 600],'Visible','off');
+  figure('Position',[0 0 600 600],'Visible','on');
   subplot = @(m,n,p) axes('Position',subposition(m,n,p,[0.125 0.125],[0.035 0.05],[1 1]));
 
   subplot(2,2,1);

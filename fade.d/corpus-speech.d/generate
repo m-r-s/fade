@@ -2,7 +2,7 @@
 #
 # This script generates a matrix sentence corpus
 #
-# Copyright (C) 2014-2018 Marc René Schädler
+# Author 2014-2021 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)

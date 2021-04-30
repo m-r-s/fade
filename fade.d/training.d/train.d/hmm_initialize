@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright (C) 2014-2016 Marc René Schädler
+# Author 2014-2021 Marc René Schädler
+
 [ -f proto ] || exit 1
 FLOOR="$1"
 [ -z "${FLOOR}" ] && FLOOR=0.01

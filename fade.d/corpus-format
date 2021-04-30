@@ -1,7 +1,7 @@
 #!/bin/bash
 #USAGE      corpus-format [TRAIN_FORMAT] [TEST_FORMAT] [CONDITION_CODE]
 #TASK       generate training and test conditions based on files in corpus, processing, or features
-#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+#AUTHOR     2014-2021 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)

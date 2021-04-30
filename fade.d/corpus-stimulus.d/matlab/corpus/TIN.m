@@ -1,7 +1,7 @@
 function [signal fs] = TIN(type, variable, condition)
 % usage: [signal fs] = TIN(type, variable, condition)
 
-% Copyright (C) 2014-2016 Marc René Schädler
+# Author 2014-2021 Marc René Schädler
 
 % check input
 assert(numel(type)==1);

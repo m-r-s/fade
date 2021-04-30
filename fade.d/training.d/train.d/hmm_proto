@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (C) 2014-2016 Marc René Schädler
+# Author 2014-2021 Marc René Schädler
 
 if [ $# -lt 2 ]
 then

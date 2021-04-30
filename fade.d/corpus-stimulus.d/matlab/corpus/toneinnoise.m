@@ -1,7 +1,7 @@
 function [signal, fs] = toneinnoise(type, fs, reference_level, stimulus_duration, tone_duration, tone_level, tone_frequency, tone_flank_duration, masker_duration, masker_level, masker_frequencies, masker_flank_duration)
 %usage [signal, fs] = toneinnoise(type, fs, reference_level, stimulus_duration, tone_duration, tone_level, tone_frequency, tone_flank_duration, masker_duration, masker_level, masker_frequencies, masker_flank_duration)
 
-% Copyright (C) 2014-2016 Marc René Schädler
+# Author 2014-2021 Marc René Schädler
 
 % calculate derived parameters
 stimulus_samples = round(fs.*stimulus_duration);

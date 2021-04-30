@@ -1,7 +1,7 @@
 #!/bin/bash
 #USAGE      info
 #TASK       print some information about a project
-#COPYRIGHT  (C) 2014-2016 Marc René Schädler
+#AUTHOR     2014-2021 Marc René Schädler
 
 # Get the directory this script is stored in and its name
 DIR=$(cd "$( dirname "$0" )" && pwd)

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Author 2014-2021 Marc René Schädler
+
 if [ -z "$@" ]; then 
   sed 's/[^/]//g' | awk '{print length}'
 else

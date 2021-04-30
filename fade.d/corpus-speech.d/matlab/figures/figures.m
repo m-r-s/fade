@@ -1,7 +1,7 @@
 function figures(results_file, varargin)
 % usage figures(results_file, figures_path, version_string, scoring, target)
 
-% Copyright (C) 2014-2016 Marc René Schädler
+% Author 2014-2021 Marc René Schädler
 
 if nargin > 1 && ~isempty(varargin{1})
   figures_path = varargin{1};

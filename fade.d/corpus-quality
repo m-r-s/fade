@@ -1,0 +1,77 @@
+#!/bin/bash
+#USAGE      corpus-matrix-quality
+#TASK       set up a matrix sentence quality corpus
+#AUTHOR     2014-2021 Marc René Schädler
+
+# Get the directory this script is stored in and its name
+DIR=$(cd "$( dirname "$0" )" && pwd)
+SCN=$(basename "$0")
+
+# Load configuration file
+CGF="${DIR}/${SCN}.cfg"
+[ -f "${CGF}" ] && source "${CGF}"
+
+# Load additional scripts from sub-script directory
+SSD="${DIR}/${SCN}.d"
+[ -d "${SSD}" ] && PATH="${PATH}:${SSD}"
+
+# Get arguments
+
+if [ $# -gt 0 ]; then
+  echo "corpus generation config will be overwritten"
+  OVERRIDE=true
+else
+  OVERRIDE=false
+fi
+
+# Working directory is the current directory
+WKD="${PWD}"
+
+# Corpus cornfig directory
+CCD="${WKD}/config/corpus"
+
+# Training config directory
+TCD="${WKD}/config/training"
+
+# Recognition config directory
+RCD="${WKD}/config/recognition"
+
+# Evaluation config directory
+ECD="${WKD}/config/evaluation"
+
+# Figure scripts directory
+FCD="${WKD}/config/figures"
+
+# Copy corpus generation script and format file
+echo "update corpus environment '${CCD}'"
+mkdir -p "${CCD}"
+echo "copy corpus format file '${CCD}/format.cfg'"
+cp "${SSD}/format.cfg" "${CCD}/format.cfg" || exit 1
+
+# Update environments
+echo "update training environment '${TCD}/environment'"
+mkdir -p "${TCD}/environment"
+
+echo "update recognition environment '${RCD}/environment'"
+mkdir -p "${RCD}/environment"
+if [ -e "${SSD}/grammar" ]; then
+  echo "copy grammar '${RCD}/environment/grammar'"
+  cp -L "${SSD}/grammar" "${RCD}/environment/grammar" || exit 1
+fi
+
+echo "update evaluation environment '${ECD}'"
+mkdir -p "${ECD}"
+if [ -e "${SSD}/evaluate" ]; then
+  echo "copy default evaluation script to '${ECD}/evaluate'"
+  cp -L "${SSD}/evaluate" "${ECD}/evaluate" || exit 1
+fi
+
+# Stop here if only configuring
+echo "configuration finished"
+$CONFIG && exit 0
+
+# Make directories for source files
+mkdir -p "${WKD}/corpus/train/reference"
+mkdir -p "${WKD}/corpus/test/compare"
+
+echo "${SCN} finished"

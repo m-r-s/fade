@@ -131,7 +131,8 @@ for iex=1:length(exptypes)
   end
 
   %% Visualize data
-  figure('Position',[0 0 600 600],'Visible','on');
+  if is_octave(); figure('Visible','off'); close; graphics_toolkit('gnuplot'); end % fix for octave 6.1.1
+  figure('Position',[0 0 600 600],'Visible','off');
   subplot = @(m,n,p) axes('Position',subposition(m,n,p,[0.125 0.125],[0.035 0.05],[1 1]));
 
   subplot(2,2,1);

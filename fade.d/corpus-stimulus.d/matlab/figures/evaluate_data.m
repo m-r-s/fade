@@ -178,7 +178,8 @@ for ico=1:num_combinations
   x_range = setrange([x_emp(:); x_mod(:)],0.1);
   y_range = setrange([y_emp(:); test_levels(:)],0.1);
 
-  figure('Position',[0 0 400 400],'Visible','on');
+  if is_octave(); figure('Visible','off'); close; graphics_toolkit('gnuplot'); end % fix for octave 6.1.1
+  figure('Position',[0 0 600 600],'Visible','off');
   h2 = plotdev(x_emp,y_emp,e_emp);
   hold on;
   h1 = plot(x_emp,y_emp,'-or');

@@ -157,7 +157,7 @@ fi
 # Gather feature file list with absolute paths
 # This is the list of files we will use to train the models
 echo "build feature file list"
-cat "${CCD}/conditions/${CONDITION}/train" | awk -v path="${CCD}/format/train/" '{print path $0}' | xargs -n1 -I'X' cat "X" | awk -v path="${FED}/train/" '{print "\"" path $0 ".htk\""}' > features
+cat "${CCD}/conditions/${CONDITION}/train" | awk -v path="${CCD}/format/train/" '{print path $0}' | xargs -I'X' cat "X" | awk -v path="${FED}/train/" '{print "\"" path $0 ".htk\""}' > features
 
 # Check if all features are in place
 NUM_FEATURES=$(cat features | wc -l)

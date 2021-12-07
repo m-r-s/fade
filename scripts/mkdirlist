@@ -6,6 +6,6 @@
 #
 
 if [ -e "$1" ]; then
-  cat "$1" | awk 'BEGIN{FS=OFS="/"}{$NF=""; NF--; print}' | sort -u | xargs -n1 -I'X' mkdir -p "X"
+  cat "$1" | awk 'BEGIN{FS=OFS="/"}{$NF=""; NF--; print}' | sort -u | xargs -I'X' mkdir -p "X"
 fi
 

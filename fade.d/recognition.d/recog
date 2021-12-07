@@ -151,7 +151,7 @@ fi
 
 # Gather feature file list with absolute paths
 # This is the list of files which will be recognized
-cat "${CCD}/conditions/${CONDITION}/test" | awk -v path="${CCD}/format/test/" '{print path $0}' | xargs -n1 -I'X' cat "X" | awk -v path="${FED}/test/" '{print "\"" path $0 ".htk\""}' > features ||  cexit 1 "failed to compile recognition file list"
+cat "${CCD}/conditions/${CONDITION}/test" | awk -v path="${CCD}/format/test/" '{print path $0}' | xargs -I'X' cat "X" | awk -v path="${FED}/test/" '{print "\"" path $0 ".htk\""}' > features ||  cexit 1 "failed to compile recognition file list"
 
 # Check if all features are in place
 NUM_FEATURES=$(cat features | wc -l)

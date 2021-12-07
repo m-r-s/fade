@@ -79,7 +79,7 @@ log_melspec_right = log_melspec_right + randn(size(log_melspec_right)).*uncertai
 % Extract SGBFB features (with adapted parameters to compensate the spectral super-sampling)
 features_left = sgbfb(single(log_melspec_left), [pi/4 pi/2]);
 features_right = sgbfb(single(log_melspec_right), [pi/4 pi/2]);
-features_diff = features_left - features_right;
+features_diff = features_left - features_right; % ul_diff approx. sqrt(ul_left^2 + ul_right^2)
 % Concatenate left and right feature vectors and perform mean and variance normalization
 features = mvn([features_left; features_diff; features_right]);
 end

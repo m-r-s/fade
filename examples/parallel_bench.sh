@@ -20,7 +20,7 @@ for ((I=0;$I<${#THREADS[@]};I++)); do
   STARTTIME=$(date +%s)
   fade "${PROJECT}" corpus-generate > /dev/null
   STOPTIME=$(date +%s)
-  TIME=$[$STOPTIME-$STARTTIME]
+  TIME=$((STOPTIME-STARTTIME))
   if [ -z "$BEST_TIME" ] || [ $TIME -lt $BEST_TIME ]; then
     echo "new best time ${TIME}s with ${TRY_CORPUS_THREADS} threads"
     BEST_TIME=$TIME

@@ -24,7 +24,7 @@ for STEP in ${STEPS[@]}; do
   [ "$START" == "$STEP" ] && STARTED=true
   if ${STARTED}; then
     case "$STEP" in
-      corpus)
+      corpus|corpus-generate)
         fade "$PROJECT" corpus-generate || exit 1
       ;;
       training)

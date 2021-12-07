@@ -47,6 +47,23 @@ case "${MODES:$[${POSITION}-1]:1}" in
     [ -n "${MODES:${POSITION}}" ] && (cd "${OPT_DIR}" && "$0" "$MODES" "$[${POSITION}+1]")
   done
   ;;
+  t)
+  echo "all vs. all for train >= test SNR"
+  for TRAIN_OPTION in ${TRAIN_OPTIONS[@]}; do
+    for TEST_OPTION in ${TEST_OPTIONS[@]}; do
+      TRAIN_SNR=$(echo $TRAIN_OPTION | sed 's/snr//g')
+      TEST_SNR=$(echo $TEST_OPTION | sed 's/snr//g')
+      if [ "${TRAIN_SNR}" -ge "${TEST_SNR}" ] ; then
+        echo "- condition '${TRAIN_OPTION}^${TEST_OPTION}'"
+        OPT_DIR="./${TRAIN_OPTION}^${TEST_OPTION}"
+        mkdir -p "$OPT_DIR"
+        cat 'train' | grep "\(^\|/\)${TRAIN_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" | sed -e 's/^\///' -e 's/\/$//' > "${OPT_DIR}/train"
+        cat 'test' | grep "\(^\|/\)${TEST_OPTION}\(/[^/]*\)\{$[${DEPTH}-1]\}$" | sed -e 's/^\///' -e 's/\/$//' > "${OPT_DIR}/test"
+        [ -n "${MODES:${POSITION}}" ] && (cd "${OPT_DIR}" && "$0" "$MODES" "$[${POSITION}+1]")
+      fi
+    done
+  done
+  ;;
   *)
     echo "- unknown"
     exit 1

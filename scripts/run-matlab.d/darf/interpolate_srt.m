@@ -1,16 +1,11 @@
-function interpolate_srt(ttr, target_rr)
+function interpolate_srt(train_snrs, test_snrs, rr, target_rr)
   % function to create plane from input train test snr pairs given a rr
   % at least requires one tt-pair to create equal performance plane
   % also gives train_test_snr_guess as second argument to reach target rr
-
-  % 0) Handle inputs
-  if numel(ttr) == 3
-    error("Requires at least 2 train/test snr pairs with 1 recog. rate.")
-  end
-
-  train_snrs  = ttr(:,1);
-  test_snrs   = ttr(:,2);
-  rr          = ttr(:,3);
+  % using "interp1" to get the snr directly can result in a "stuck" pattern,
+  % e.g.: snrs = [-7 -20 -16], rr = [1 0.27 0.16]
+  %
+  % could maybe replaced by some linear regression for all points
 
   if all(train_snrs == test_snrs) ~= 1
     error("Not one vs. one recognition! Aborting!")
@@ -23,7 +18,7 @@ function interpolate_srt(ttr, target_rr)
   if sign(min(fade_snrs)) ~= sign(max(fade_snrs))
     elem = elem + 1;
   end
-  snrs        = linspace(min(fade_snrs),max(fade_snrs),elem);
+  snrs      = linspace(min(fade_snrs),max(fade_snrs),elem);
   srt_guess = int1d(fade_snrs,rr,snrs,target_rr);
   fprintf('%+03.0f\n',srt_guess);
 end

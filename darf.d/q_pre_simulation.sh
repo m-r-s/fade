@@ -66,20 +66,31 @@ while true; do
   INTERP_QUESTION=0
   if [ $CRUN -gt 0 ]; then
     # checks if there are recognition rates greater and lower than target recognition rate
-    RATES=($(cat ""${PROJECT}/pre-sim-summary"" | tr '_' ' ' | sed 's/snr//g' | awk '{print $6/$5; }'))
+    RATES=($(cat "${PROJECT}/pre-sim-summary" | tr '_' ' ' | sed 's/snr//g' | awk '{print $6/$5; }'))
     # in will have zeros and ones if there are values greater and lower than TARGET_RECOGNITION_RATE, thus length unique will be 2
     INTERP_QUESTION=$( echo "rrs = [${RATES[@]}]; in = rrs > ${TARGET_RECOGNITION_RATE}; disp(length(unique(in))>1);" | run-matlab )
+    echo "DEBUG: INTERPOLATION ALLOWED: $INTERP_QUESTION" >> ${SLF}
   fi
 
   if [ ${INTERP_QUESTION} -eq 1 ]; then
     # interpolate srt if possible
     # get vector with TRAIN_SNRs, TEST_SNRs, and rates
-    TTR=$(cat ""${PROJECT}/pre-sim-summary"" | tr '_' ' ' | sed 's/snr//g' | awk '{print $2" "$4" "$6/$5; }')
+    TTR_TRAIN=$(cat "${PROJECT}/pre-sim-summary" | tr '_' ' ' | sed 's/snr//g' | awk '{print $2}')
+    TTR_TEST=$(cat "${PROJECT}/pre-sim-summary" | tr '_' ' ' | sed 's/snr//g' | awk '{print $4}')
+    TTR_RATE=$(cat "${PROJECT}/pre-sim-summary" | tr '_' ' ' | sed 's/snr//g' | awk '{print $6/$5}')
     # interpolate next TRAIN_SNR and TEST_SNR
-    SNR_ESTIMATE=$( echo "interpolate_srt([${TTR}],${TARGET_RECOGNITION_RATE});" | run-matlab 'darf')
+    SNR_ESTIMATE=$( echo "
+          train_snrs = [${TTR_TRAIN}];
+          test_snrs = [${TTR_TEST}];
+          rr = [${TTR_RATE}];
+          interpolate_srt(train_snrs, test_snrs, rr, ${TARGET_RECOGNITION_RATE}); " | run-matlab 'darf')
+    echo "DEBUG: SNR_ESTIMATE FROM INTERP: $SNR_ESTIMATE" >> ${SLF}
     # check if recognition rates between 0.25 and 0.75 exist, if so break (i.e., TRAIN_SNR and TEST_SNR were interpolated from these values
     # assumption: nearly linear slope of psychometric function between these two rates
-    BREAK_CONDITION_THREE=$( echo "interpolate_srt_check_rr([${TTR}],${TARGET_RECOGNITION_RATE},${PRE_SIM_NUM_OPTIONS},${SNR_ESTIMATE});" | run-matlab 'darf')
+    BREAK_CONDITION_THREE=$( echo "
+          test_snrs = [${TTR_TEST}];
+          rr = [${TTR_RATE}];
+          interpolate_srt_check_rr(test_snrs, rr, ${TARGET_RECOGNITION_RATE}, ${PRE_SIM_NUM_OPTIONS}, ${SNR_ESTIMATE});" | run-matlab 'darf')
     [ $BREAK_CONDITION_THREE -eq 1 ] && break
     #### log the actions
   else
@@ -90,7 +101,9 @@ while true; do
     [ ${CDIR} -lt 0 ] && STEP_SIZE=$( echo "disp(ceil(max(${MIN_STEP},${STEP_SIZE}/1.5)))" | run-matlab )
     SNR_ESTIMATE=$( echo "val = round(${SNR_ESTIMATE}+${CORRECTION}); printf('%+03.0f',val); " | run-matlab )
     PREVIOUS_CORRECTION="${CORRECTION}"
+    echo "DEBUG: NO INTERPOLATION: $SNR_ESTIMATE" >> ${SLF}
   fi
+
   # check if SNR was already estimated and look in both directions --> avoids diverge
   ALREADY_THERE=0
   [[ $(rws.sh "${PREVIOUS_SNRS}") = *"${SNR_ESTIMATE}"* ]] && ALREADY_THERE=1
@@ -101,7 +114,8 @@ while true; do
   done
   ALREADY_THERE_CORRECTION=$( echo "printf('%+1.0f',-(${ALREADY_THERE_CORRECTION}));" | run-matlab )
 
-  SNR_ESTIMATE=$(echo " if ${SNR_ESTIMATE} > 100; printf('%+03.0f',100); else printf('%+03.0f',${SNR_ESTIMATE}); end" | run-matlab )
+  # SNR_ESTIMATE=$(echo " if ${SNR_ESTIMATE} > 100; printf('%+03.0f',100); elseif ${SNR_ESTIMATE} < -80; printf('%+03.0f',-80); else printf('%+03.0f',${SNR_ESTIMATE}); end" | run-matlab )
+  SNR_ESTIMATE=$(echo "snr_est = min(max(${SNR_ESTIMATE},-80),100); printf('%+03.0f', snr_est);" | run-matlab )
   PREVIOUS_SNRS="${PREVIOUS_SNRS} ${SNR_ESTIMATE}"
   [ ${COUNTER_ALREADY_THERE} -gt 4 ] && break # if this has to be done several times, the SRT should be somewhere around there
   echo "ESTIMATE AT END: ${SNR_ESTIMATE}" >> $SLF

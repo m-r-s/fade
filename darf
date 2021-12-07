@@ -235,8 +235,9 @@ clean "${PROJECT}" full
 # Linking souce/names to source/speech for presim
 NUM_PRE_SIM_SENT=$(ls -1 "${PROJECT}/source/names" | grep "wav$" | wc -l)
 # link source/names to source/speech
+[ -L "${PROJECT}/source/speech" ] && unlink "${PROJECT}/source/speech"
 [ -d "${PROJECT}/source/speech" ] && rm -r "${PROJECT}/source/speech"
-ln -s "${PROJECT}/source/names" "${PROJECT}/source/speech"
+ln -s -r "${PROJECT}/source/names" "${PROJECT}/source/speech"
 
 # Format corpus (determine training/testing combinations)
 # 'o o' indicates to train within the same noise condition (first 'o') for matched SNR combinations (second 'o')
@@ -256,8 +257,9 @@ echo "SRT_pre   = ${SNR_ESTIMATE} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"
 clean "${PROJECT}"
 
 # link source/matrix to souce/speech
+[ -L "${PROJECT}/source/speech" ] && unlink "${PROJECT}/source/speech"
 [ -d "${PROJECT}/source/speech" ] && rm -r "${PROJECT}/source/speech"
-ln -s "${PROJECT}/source/matrix" "${PROJECT}/source/speech"
+ln -s -r "${PROJECT}/source/matrix" "${PROJECT}/source/speech"
 
 # Set variables
 TRAIN_SNRS=($( echo "vals = round([${TRAIN_CONTEXT}] + ${SNR_ESTIMATE}); disp(sprintf('%+03.0f ',vals));" | run-matlab 'darf' ))

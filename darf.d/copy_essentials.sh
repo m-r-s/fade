@@ -15,13 +15,15 @@ fi
 FILELIST=($(find "${PROJECT}" -mindepth 1 -maxdepth 1 | sed -e '/sub/d' -e '/jobs/d'))
 for FULLFILENAME in ${FILELIST[@]}; do
   FILENAME=$(basename "${FULLFILENAME}")
-  case "${FILENAME}" in
-    .*|log|config)
-      echo "copy '${FILENAME}'"
-      cp -L -r "${FULLFILENAME}" "${TARGET}/${FILENAME}"
-    ;;
-    *)
-      echo "link '${FILENAME}'"
-      ln -s "${FULLFILENAME}" "${TARGET}/${FILENAME}"
-  esac
+  if [ ! -d "${TARGET}/${FILENAME}" ] && [ ! -f "${TARGET}/${FILENAME}" ] && [ ! -L "${TARGET}/${FILENAME}" ] ; then
+    case "${FILENAME}" in
+      .*|log|config)
+        echo "copy '${FILENAME}'"
+        cp -L -r "${FULLFILENAME}" "${TARGET}/${FILENAME}"
+      ;;
+      *)
+        echo "link '${FILENAME}'"
+        ln -s -r "${FULLFILENAME}" "${TARGET}/${FILENAME}"
+    esac
+  fi
 done

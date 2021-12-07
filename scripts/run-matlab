@@ -30,8 +30,8 @@ ERROR=false
 if [ -z "${MATLAB}" ]; then
   if [ -x "$(which flatpak 2> /dev/null)" ] && $(flatpak list | grep '^org.octave.Octave' &> /dev/null); then
     MATLAB="flatpak run --filesystem=/tmp org.octave.Octave -q"
-  elif [ -x "$(which octave-cli 2> /dev/null)" ]; then
-    MATLAB="octave-cli -q"
+  elif [ -x "$(which octave 2> /dev/null)" ]; then
+    MATLAB="octave -q"
   elif  [ -x "$(which matlab 2> /dev/null)" ]; then
     MATLAB="matlab -nodesktop -nosplash -singleCompThread"
   fi

@@ -152,7 +152,7 @@ if [ $NUM_CONDITIONS_PER_TRAIN_SNR -ge 2 ] && [ $NUM_CONDITIONS_PER_TEST_SNR -ge
     echo "Exceeded range, aborting: Train SNR was ${TRAIN_SNR}, Test SNR was ${TEST_SNR}" > "${PROJECT}/figures/table.txt"
     rmdir "${LDIR}"
     echo "Breaking the loop" > "${PROJECT}/is-running" # parse to fifo, otherwise project will never finish
-    exit 1
+    exit 0
   fi
 
   # get number of finished and pending record jobs and number of sub projects

@@ -8,7 +8,7 @@ FILTER="sub"
 echo "creating subproject '${TARGET}'"
 if ! (mkdir -p "${TARGET}"); then
   echo "could not create '${TARGET}'"
-  exit 1
+  exit 0
 fi
 
 # create filelist WITHOUT any sub projects

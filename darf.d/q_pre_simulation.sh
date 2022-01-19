@@ -42,7 +42,7 @@ while true; do
   # Link/Record speech signals from PROJECT to PROJECT
   link_corpus.sh "${PRE_SUB}-${CRUN}" "${SNR_ESTIMATE}" "${NUM_TRAIN_SAMPLES}" "${SNR_ESTIMATE}" "${NUM_TEST_SAMPLES}" >> ${SLF}
   # process corpus
-  preproc_corpus.sh "${PRE_SUB}-${CRUN}" "${EAR}" "${SAMPLING_RATE}" "${PROC}" "${PROC_OPTS}" "${SNR_ESTIMATE}" "${SNR_ESTIMATE}" >> ${SLF} #FIXME! CHECK HERE
+  preproc_corpus.sh "${PRE_SUB}-${CRUN}" "${EAR}" "${SAMPLING_RATE}" "${PROC}" "${PROC_OPTS}" "${SNR_ESTIMATE}" "${SNR_ESTIMATE}" >> ${SLF}
   # Use each representation nover times
   copy_overdraw.sh "${PRE_SUB}-${CRUN}" "${NOVER}" >> ${SLF}
   # Run fade from features to evaluation
@@ -57,10 +57,10 @@ while true; do
   # just check for current examied SNR
   RATE=$( cat "${PROJECT}/pre-sim-summary" | tr '_' ' ' | sed 's/snr//g' | awk -v snr=${SNR_ESTIMATE} '{if($2 == snr && $4 == snr) print $6/$5; }' )
   # check if rate is empty, throw error if yes
-  [ -e "${RATE}" ] && error "RATE is empty, aborting!" && exit 1
+  [ -e "${RATE}" ] && error "RATE is empty, aborting!"
   # check if rate is within proximity of TARGET_RECOGNITION_RATE, break if yes
-  BREAK_CONDITION_ONE=$( echo "if abs(${TARGET_RECOGNITION_RATE}-${RATE}) <= ${ACCURACY}; disp(1); else disp(0); end " | run-matlab )
-  [ $BREAK_CONDITION_ONE -eq 1 ] && break
+  BREAK_CONDITION=$( echo "if abs(${TARGET_RECOGNITION_RATE}-${RATE}) <= ${ACCURACY}; disp(1); else disp(0); end " | run-matlab )
+  [ ${BREAK_CONDITION} -eq 1 ] && break
 
   # check if interpolation is possible
   INTERP_QUESTION=0
@@ -80,18 +80,18 @@ while true; do
     TTR_RATE=$(cat "${PROJECT}/pre-sim-summary" | tr '_' ' ' | sed 's/snr//g' | awk '{print $6/$5}')
     # interpolate next TRAIN_SNR and TEST_SNR
     SNR_ESTIMATE=$( echo "
-          train_snrs = [${TTR_TRAIN}];
-          test_snrs = [${TTR_TEST}];
-          rr = [${TTR_RATE}];
-          interpolate_srt(train_snrs, test_snrs, rr, ${TARGET_RECOGNITION_RATE}); " | run-matlab 'darf')
+      train_snrs = [${TTR_TRAIN}];
+      test_snrs = [${TTR_TEST}];
+      rr = [${TTR_RATE}];
+      interpolate_srt(train_snrs, test_snrs, rr, ${TARGET_RECOGNITION_RATE}); " | run-matlab 'darf')
     echo "DEBUG: SNR_ESTIMATE FROM INTERP: $SNR_ESTIMATE" >> ${SLF}
     # check if recognition rates between 0.25 and 0.75 exist, if so break (i.e., TRAIN_SNR and TEST_SNR were interpolated from these values
     # assumption: nearly linear slope of psychometric function between these two rates
-    BREAK_CONDITION_THREE=$( echo "
-          test_snrs = [${TTR_TEST}];
-          rr = [${TTR_RATE}];
-          interpolate_srt_check_rr(test_snrs, rr, ${TARGET_RECOGNITION_RATE}, ${PRE_SIM_NUM_OPTIONS}, ${SNR_ESTIMATE});" | run-matlab 'darf')
-    [ $BREAK_CONDITION_THREE -eq 1 ] && break
+    BREAK_CONDITION=$( echo "
+      test_snrs = [${TTR_TEST}];
+      rr = [${TTR_RATE}];
+      interpolate_srt_check_rr(test_snrs, rr, ${TARGET_RECOGNITION_RATE}, ${PRE_SIM_NUM_OPTIONS}, ${SNR_ESTIMATE});" | run-matlab 'darf')
+    [ ${BREAK_CONDITION} -eq 1 ] && break
     #### log the actions
   else
     # Otherwise adapt snr
@@ -114,7 +114,6 @@ while true; do
   done
   ALREADY_THERE_CORRECTION=$( echo "printf('%+1.0f',-(${ALREADY_THERE_CORRECTION}));" | run-matlab )
 
-  # SNR_ESTIMATE=$(echo " if ${SNR_ESTIMATE} > 100; printf('%+03.0f',100); elseif ${SNR_ESTIMATE} < -80; printf('%+03.0f',-80); else printf('%+03.0f',${SNR_ESTIMATE}); end" | run-matlab )
   SNR_ESTIMATE=$(echo "snr_est = min(max(${SNR_ESTIMATE},-80),100); printf('%+03.0f', snr_est);" | run-matlab )
   PREVIOUS_SNRS="${PREVIOUS_SNRS} ${SNR_ESTIMATE}"
   [ ${COUNTER_ALREADY_THERE} -gt 4 ] && break # if this has to be done several times, the SRT should be somewhere around there

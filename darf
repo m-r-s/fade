@@ -36,6 +36,14 @@ if [ $# -lt 1 ] ; then
   exit 0
 fi
 
+# see https://medium.com/@dirk.avery/the-bash-trap-trap-ce6083f36700
+# set -e # exit-on-error mode
+trap 'catch ${?} ${LINENO}' ERR # catch errors (does not work for exits, since these are needed in the different scripts)
+
+catch() {
+  echo "$(basename $(caller)): Error ${1} on line ${2}"
+}
+
 # statistics
 start=$(date +%s)
 
@@ -86,12 +94,15 @@ function clean {
     find "${PROJECT}" -mindepth 1 -maxdepth 1 -type d -iname "sub-*" | while read line ; do
       [ -d "${line}" ] && rm -r "${line}"
     done
-    [ -d "${PROJECT}/log" ]                && rm    "${PROJECT}/log/"*.log
+    [ -d "${PROJECT}/log" ]                && rm -r "${PROJECT}/log"
+    mkdir "${PROJECT}/log"
     [ -d "${PROJECT}/pre-sim-corpus" ]     && rm -r "${PROJECT}/pre-sim-corpus"
     [ -d "${PROJECT}/pre-sim-processing" ] && rm -r "${PROJECT}/pre-sim-processing"
     [ -f "${PROJECT}/pre-sim-summary" ]    && rm    "${PROJECT}/pre-sim-summary"
     [ -f "${PROJECT}/is-running" ]         && rm    "${PROJECT}/is-running"
   fi
+  # function needs to return successfull state for trap to work correctly.
+  return 0
 }
 
 function print_info {
@@ -230,7 +241,7 @@ echo "SRT_guess = ${SNR_ESTIMATE} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"
 ############################################
 
 # Clean up if neccessary
-clean "${PROJECT}" full
+clean "${PROJECT}" "full"
 
 # Linking souce/names to source/speech for presim
 NUM_PRE_SIM_SENT=$(ls -1 "${PROJECT}/source/names" | grep "wav$" | wc -l)
@@ -254,7 +265,7 @@ echo "SRT_pre   = ${SNR_ESTIMATE} dB SNR re approx. ${SPEECH_LEVEL} dB SPL"
 
 ## Preparation
 # Clean up pre-simulation
-clean "${PROJECT}"
+clean "${PROJECT}" "small"
 
 # link source/matrix to souce/speech
 [ -L "${PROJECT}/source/speech" ] && unlink "${PROJECT}/source/speech"
@@ -309,8 +320,10 @@ q_record.sh ${PROJECT} > /dev/null 2>&1 &
 cat "${PROJECT}/is-running"
 rm "${PROJECT}/is-running"
 wait
+
 # kill all child processes
-pkill -P $$
+# do not throw an error if there are no child processes
+pkill -P $$ || true
 
 # statistics
 end=$(date +%s)
